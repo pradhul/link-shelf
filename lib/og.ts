@@ -110,7 +110,8 @@ export async function fetchOgData(
   }
 }
 
-const MAX_THUMB_BYTES = 1_000_000;
+const MAX_THUMB_BYTES = 400_000; // keep Gemini payloads small (helps free-tier 429s)
+
 
 export async function fetchThumbnailBytes(
   imageUrl: string,
@@ -137,21 +138,49 @@ export async function fetchThumbnailBytes(
 }
 
 function cleanUrl(raw: string) {
-  return raw.replace(/[),.;!?]+$/, "");
+  return raw
+    .replace(/^[\s<('"\[（]+/, "")
+    .replace(/[>\])"'，。、।॥]+$/u, "")
+    .replace(/[),.;!?]+$/u, "");
+}
+
+/** Remove copy-paste noise that breaks URL matching. */
+export function sanitizeShareText(text: string) {
+  return text
+    .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "") // ZWSP, ZWNJ, ZWJ, BOM, soft hyphen
+    .replace(/\u00A0/g, " ");
 }
 
 export function extractUrl(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s<>"']+/i);
-  if (!match) return null;
-  return cleanUrl(match[0]);
+  const urls = extractUrls(text);
+  return urls[0] ?? null;
 }
 
 export function extractUrls(text: string): string[] {
-  const matches = text.match(/https?:\/\/[^\s<>"']+/gi) ?? [];
+  const cleaned = sanitizeShareText(text);
+  const found: string[] = [];
+
+  // Markdown links: [label](https://...)
+  for (const m of cleaned.matchAll(/\[[^\]]*]\(\s*(https?:\/\/[^)\s]+)\s*\)/gi)) {
+    found.push(m[1]);
+  }
+
+  // Angle / bare URLs
+  for (const m of cleaned.matchAll(/https?:\/\/[^\s<>"'\]]+/gi)) {
+    found.push(m[0]);
+  }
+
   const seen = new Set<string>();
   const urls: string[] = [];
-  for (const m of matches) {
-    const url = cleanUrl(m);
+  for (const raw of found) {
+    const url = cleanUrl(raw);
+    if (!/^https?:\/\//i.test(url)) continue;
+    try {
+      // Validate
+      new URL(url);
+    } catch {
+      continue;
+    }
     if (!seen.has(url)) {
       seen.add(url);
       urls.push(url);
@@ -163,4 +192,44 @@ export function extractUrls(text: string): string[] {
 export function getBatchMax() {
   const n = Number(process.env.GEMINI_BATCH_MAX ?? "5");
   return Number.isFinite(n) && n > 0 ? Math.min(n, 10) : 5;
+}
+
+/** Enrich YouTube links when HTML OG is empty/blocked. */
+export async function fetchYoutubeOEmbed(
+  url: string,
+): Promise<Pick<OgData, "title" | "thumbnailUrl"> | null> {
+  if (detectSource(url) !== "youtube") return null;
+  try {
+    const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    const res = await fetch(endpoint, {
+      headers: { "User-Agent": UA, Accept: "application/json" },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      title?: string;
+      thumbnail_url?: string;
+    };
+    return {
+      title: data.title ?? null,
+      thumbnailUrl: data.thumbnail_url ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchLinkPreview(
+  url: string,
+  opts?: { timeoutMs?: number },
+): Promise<OgData> {
+  const og = await fetchOgData(url, opts);
+  if (og.title && og.thumbnailUrl) return og;
+  const yt = await fetchYoutubeOEmbed(url);
+  if (!yt) return og;
+  return {
+    title: og.title ?? yt.title,
+    description: og.description,
+    thumbnailUrl: og.thumbnailUrl ?? yt.thumbnailUrl,
+  };
 }

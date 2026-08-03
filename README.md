@@ -42,7 +42,7 @@ npm run db:push
 | `TELEGRAM_WEBHOOK_SECRET` | Random secret for webhook verification |
 | `TELEGRAM_ALLOWED_USER_IDS` | Comma-separated Telegram user IDs |
 | `GEMINI_API_KEY` | Google AI Studio key for multi-link auto-tag |
-| `GEMINI_MODEL` | Optional (default `gemini-2.0-flash`) |
+| `GEMINI_MODEL` | Optional (default `gemini-2.5-flash`) |
 | `GEMINI_CONFIDENCE_THRESHOLD` | Optional (default `0.7`) |
 | `GEMINI_BATCH_MAX` | Optional max URLs per message (default `5`) |
 

@@ -1,16 +1,17 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
 import {
   categorizeLinks,
+  formatGeminiError,
   getConfidenceThreshold,
   hasGeminiKey,
 } from "@/lib/gemini";
-import { getDb } from "@/lib/db";
 import {
   detectSource,
   extractUrl,
   extractUrls,
-  fetchOgData,
+  fetchLinkPreview,
   fetchThumbnailBytes,
   getBatchMax,
 } from "@/lib/og";
@@ -115,13 +116,15 @@ async function handleBatchUrls(
   await clearPending(userId);
   await sendMessage(
     chatId,
-    `Analyzing ${selected.length} link${selected.length === 1 ? "" : "s"}…` +
-      (skipped > 0 ? ` (capped at ${batchMax}; ${skipped} ignored)` : ""),
+    `Found ${urls.length} link${urls.length === 1 ? "" : "s"}. Analyzing ${selected.length}…` +
+      (skipped > 0
+        ? ` (${skipped} left for a second message — free tier works better with ≤${batchMax})`
+        : ""),
   );
 
   const enriched = await Promise.all(
     selected.map(async (url) => {
-      const og = await fetchOgData(url, { timeoutMs: 3000 });
+      const og = await fetchLinkPreview(url, { timeoutMs: 3000 });
       const image = og.thumbnailUrl
         ? await fetchThumbnailBytes(og.thumbnailUrl, { timeoutMs: 3000 })
         : null;
@@ -138,12 +141,12 @@ async function handleBatchUrls(
 
   const threshold = getConfidenceThreshold();
   let results: Awaited<ReturnType<typeof categorizeLinks>> | null = null;
+  let categorizeError: string | null = null;
 
   if (!hasGeminiKey()) {
-    await sendMessage(
-      chatId,
-      "Auto-tag needs GEMINI_API_KEY. Saving all as uncategorized — edit tags in the app.",
-    );
+    categorizeError =
+      "Auto-tag needs GEMINI_API_KEY. Saving all as uncategorized.";
+    await sendMessage(chatId, categorizeError);
   } else {
     try {
       const tagTree = await getTagTree();
@@ -159,9 +162,10 @@ async function handleBatchUrls(
       );
     } catch (err) {
       console.error("gemini categorize failed", err);
+      categorizeError = formatGeminiError(err);
       await sendMessage(
         chatId,
-        "Auto-tag failed. Saving all as uncategorized — edit tags in the app.",
+        `Auto-tag failed: ${categorizeError}\nSaving all as uncategorized — edit tags in the app.`,
       );
     }
   }
@@ -170,14 +174,13 @@ async function handleBatchUrls(
   let tagged = 0;
   let uncategorized = 0;
 
-  for (const item of enriched) {
-    const cat = results?.find(
-      (r) => r.url === item.url || cleanMatch(r.url, item.url),
-    );
+  for (let i = 0; i < enriched.length; i++) {
+    const item = enriched[i];
+    const cat = results?.[i] ?? null;
     const confident =
-      cat &&
-      cat.confidence >= threshold &&
-      Boolean(cat.topTag?.trim());
+      Boolean(cat) &&
+      cat!.confidence >= threshold &&
+      Boolean(cat!.topTag?.trim());
 
     const topTagName = confident ? cat!.topTag : null;
     const subTagName = confident ? cat!.subTag : null;
@@ -202,8 +205,9 @@ async function handleBatchUrls(
       );
     } else {
       uncategorized += 1;
+      const why = cat?.reason ? ` — ${cat.reason}` : "";
       lines.push(
-        `• ${created ? "Saved" : "Updated"}: ${label}\n  → uncategorized (review in app)`,
+        `• ${created ? "Saved" : "Updated"}: ${label}\n  → uncategorized (review in app)${why}`,
       );
     }
   }
@@ -212,14 +216,6 @@ async function handleBatchUrls(
     `Done. Tagged: ${tagged} · Uncategorized: ${uncategorized}` +
     (skipped > 0 ? ` · Skipped: ${skipped}` : "");
   await sendMessage(chatId, `${header}\n\n${lines.join("\n")}`);
-}
-
-function cleanMatch(a: string, b: string) {
-  try {
-    return new URL(a).href === new URL(b).href;
-  } catch {
-    return a === b;
-  }
 }
 
 async function handleCallback(update: TelegramUpdate) {

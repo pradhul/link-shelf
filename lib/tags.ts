@@ -15,17 +15,31 @@ const DEFAULT_ICONS: Record<string, string> = {
 };
 
 export function slugify(input: string) {
-  return input
+  const base = input
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .normalize("NFKC")
+    // Letters + combining marks (Indic matras) + numbers
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 64);
+
+  if (base) return base;
+
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return `tag-${hash.toString(36)}`;
 }
 
 export function titleCase(input: string) {
-  return input
-    .trim()
+  const trimmed = input.trim();
+  // Leave Indic / non-Latin scripts mostly as-is; only title-case Latin words
+  if (/[^\u0000-\u024F]/.test(trimmed)) {
+    return trimmed;
+  }
+  return trimmed
     .split(/[\s-_]+/)
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
