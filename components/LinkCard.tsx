@@ -10,6 +10,7 @@ type Props = {
   onToggleFavorite: (save: SaveWithTags) => void;
   onDelete: (save: SaveWithTags) => void;
   onRefreshPreview?: (save: SaveWithTags) => void;
+  onViewNotes?: (save: SaveWithTags) => void;
 };
 
 function formatDate(d: Date | string) {
@@ -34,8 +35,8 @@ export function LinkCard({
   onToggleFavorite,
   onDelete,
   onRefreshPreview,
+  onViewNotes,
 }: Props) {
-  const [notesOpen, setNotesOpen] = useState(false);
   const [starBump, setStarBump] = useState(false);
   const notes = save.notes?.trim() ?? "";
   const showDescription = !notes && Boolean(save.description?.trim());
@@ -124,27 +125,23 @@ export function LinkCard({
         </a>
 
         {notes && (
-          <div className="rounded-lg bg-surface-container-low/80 px-2.5 py-2">
-            <button
-              type="button"
-              onClick={() => setNotesOpen((o) => !o)}
-              className="press-scale flex w-full items-center justify-between gap-2 text-left"
-            >
+          <button
+            type="button"
+            onClick={() => onViewNotes?.(save)}
+            className="press-scale rounded-lg bg-surface-container-low/80 px-2.5 py-2 text-left transition hover:bg-surface-container-high"
+          >
+            <span className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-outline">
                 Notes
               </span>
               <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
-                {notesOpen ? "expand_less" : "expand_more"}
+                open_in_full
               </span>
-            </button>
-            <p
-              className={`mt-1 whitespace-pre-wrap text-sm text-on-surface-variant ${
-                notesOpen ? "" : "line-clamp-2"
-              }`}
-            >
+            </span>
+            <p className="mt-1 line-clamp-2 text-sm text-on-surface-variant">
               {notes}
             </p>
-          </div>
+          </button>
         )}
 
         {showDescription && (

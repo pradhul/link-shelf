@@ -7,6 +7,7 @@ import type { Tag } from "@/lib/schema";
 import { AddLinkModal } from "./AddLinkModal";
 import { EditLinkModal } from "./EditLinkModal";
 import { LinkCard } from "./LinkCard";
+import { NotesSheet } from "./NotesSheet";
 import { SearchBar } from "./SearchBar";
 import { Sidebar } from "./Sidebar";
 
@@ -37,6 +38,7 @@ export function ShelfShell({
   const [mobileNav, setMobileNav] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<SaveWithTags | null>(null);
+  const [notesSave, setNotesSave] = useState<SaveWithTags | null>(null);
   const [repairing, setRepairing] = useState(false);
 
   function refresh() {
@@ -196,6 +198,7 @@ export function ShelfShell({
                   onToggleFavorite={toggleFavorite}
                   onDelete={remove}
                   onRefreshPreview={refreshPreview}
+                  onViewNotes={setNotesSave}
                 />
               ))}
             </div>
@@ -215,6 +218,15 @@ export function ShelfShell({
         topTags={topTags}
         onClose={() => setEditing(null)}
         onSaved={refresh}
+      />
+      <NotesSheet
+        open={Boolean(notesSave)}
+        save={notesSave}
+        onClose={() => setNotesSave(null)}
+        onEdit={(save) => {
+          setNotesSave(null);
+          setEditing(save);
+        }}
       />
     </div>
   );
