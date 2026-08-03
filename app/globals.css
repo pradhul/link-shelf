@@ -67,6 +67,62 @@ body {
   font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
+@keyframes star-twist {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  35% {
+    transform: scale(1.18) rotate(14deg);
+  }
+  70% {
+    transform: scale(0.94) rotate(-8deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes tag-jerk {
+  0% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.press-scale {
+  transition: transform 120ms ease;
+}
+.press-scale:active {
+  transform: scale(0.92);
+}
+
+.star-twist {
+  animation: star-twist 380ms ease;
+}
+
+.tag-jerk:active {
+  animation: tag-jerk 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press-scale,
+  .press-scale:active,
+  .star-twist,
+  .tag-jerk:active {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

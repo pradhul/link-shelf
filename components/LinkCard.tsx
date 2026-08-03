@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { SaveWithTags } from "@/lib/saves";
 
 type Props = {
@@ -34,6 +35,19 @@ export function LinkCard({
   onDelete,
   onRefreshPreview,
 }: Props) {
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [starBump, setStarBump] = useState(false);
+  const notes = save.notes?.trim() ?? "";
+  const showDescription = !notes && Boolean(save.description?.trim());
+
+  function handleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setStarBump(true);
+    window.setTimeout(() => setStarBump(false), 400);
+    onToggleFavorite(save);
+  }
+
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/30 transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
@@ -60,12 +74,8 @@ export function LinkCard({
         <button
           type="button"
           aria-label="Toggle favorite"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleFavorite(save);
-          }}
-          className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-lowest/90 text-on-surface shadow-sm backdrop-blur"
+          onClick={handleFavorite}
+          className={`absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-lowest/90 text-on-surface shadow-sm backdrop-blur press-scale ${starBump ? "star-twist" : ""}`}
         >
           <span
             className={`material-symbols-outlined text-[18px] ${save.isFavorite ? "fill text-tertiary-fixed-dim" : ""}`}
@@ -88,14 +98,14 @@ export function LinkCard({
             <span key={topTag.id} className="contents">
               <Link
                 href={`/tags/${topTag.slug}`}
-                className="rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-secondary-container transition hover:brightness-95"
+                className="tag-jerk rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-secondary-container transition hover:brightness-95"
               >
                 {topTag.name}
               </Link>
               {subTag && (
                 <Link
                   href={`/tags/${topTag.slug}?sub=${subTag.slug}`}
-                  className="rounded-full bg-surface-container-high px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant transition hover:bg-surface-container-highest"
+                  className="tag-jerk rounded-full bg-surface-container-high px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant transition hover:bg-surface-container-highest"
                 >
                   {subTag.name}
                 </Link>
@@ -113,13 +123,31 @@ export function LinkCard({
           {save.title || hostname(save.url)}
         </a>
 
-        {save.notes?.trim() && (
-          <p className="line-clamp-1 text-sm italic text-on-surface-variant">
-            {save.notes.trim()}
-          </p>
+        {notes && (
+          <div className="rounded-lg bg-surface-container-low/80 px-2.5 py-2">
+            <button
+              type="button"
+              onClick={() => setNotesOpen((o) => !o)}
+              className="press-scale flex w-full items-center justify-between gap-2 text-left"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-outline">
+                Notes
+              </span>
+              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                {notesOpen ? "expand_less" : "expand_more"}
+              </span>
+            </button>
+            <p
+              className={`mt-1 whitespace-pre-wrap text-sm text-on-surface-variant ${
+                notesOpen ? "" : "line-clamp-2"
+              }`}
+            >
+              {notes}
+            </p>
+          </div>
         )}
 
-        {save.description && (
+        {showDescription && (
           <a
             href={save.url}
             target="_blank"
@@ -146,7 +174,7 @@ export function LinkCard({
                 aria-label="Refresh preview"
                 title="Refresh preview"
                 onClick={() => onRefreshPreview(save)}
-                className="rounded-full p-1 hover:bg-surface-container-high"
+                className="press-scale rounded-full p-1 hover:bg-surface-container-high"
               >
                 <span className="material-symbols-outlined text-[16px]">
                   refresh
@@ -157,7 +185,7 @@ export function LinkCard({
               type="button"
               aria-label="Edit"
               onClick={() => onEdit(save)}
-              className="rounded-full p-1 hover:bg-surface-container-high"
+              className="press-scale rounded-full p-1 hover:bg-surface-container-high"
             >
               <span className="material-symbols-outlined text-[16px]">edit</span>
             </button>
@@ -165,7 +193,7 @@ export function LinkCard({
               type="button"
               aria-label="Delete"
               onClick={() => onDelete(save)}
-              className="rounded-full p-1 hover:bg-surface-container-high"
+              className="press-scale rounded-full p-1 hover:bg-surface-container-high"
             >
               <span className="material-symbols-outlined text-[16px]">
                 delete
@@ -176,7 +204,7 @@ export function LinkCard({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Open link"
-              className="rounded-full p-1 hover:bg-surface-container-high"
+              className="press-scale rounded-full p-1 hover:bg-surface-container-high"
             >
               <span className="material-symbols-outlined text-[16px]">
                 open_in_new

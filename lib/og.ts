@@ -56,7 +56,46 @@ function decodeHtml(s: string) {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    // Instagram sometimes omits the trailing semicolon
+    .replace(/&#x([0-9a-fA-F]{1,6});?/g, (_, hex: string) => {
+      const code = Number.parseInt(hex, 16);
+      try {
+        return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+      } catch {
+        return "";
+      }
+    })
+    .replace(/&#(\d{1,7});?/g, (_, dec: string) => {
+      const code = Number.parseInt(dec, 10);
+      try {
+        return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+      } catch {
+        return "";
+      }
+    });
+}
+
+/** Decode HTML entities, strip bidi/control junk, normalize whitespace. */
+export function sanitizeText(input: string | null | undefined): string | null {
+  if (input == null) return null;
+  let s = String(input);
+  // Run decode twice in case entities were double-encoded
+  s = decodeHtml(decodeHtml(s));
+  s = s
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD]/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  return s.length > 0 ? s : null;
+}
+
+/** True when a title still has raw HTML entities (needs refresh/sanitize). */
+export function hasEncodedEntities(text: string | null | undefined) {
+  return /&#x?[0-9a-fA-F]+;?|&(?:amp|lt|gt|quot|apos|#39);/i.test(text ?? "");
 }
 
 const UA =
@@ -101,8 +140,8 @@ export async function fetchOgData(
     }
 
     return {
-      title: title ? decodeHtml(title) : null,
-      description,
+      title: sanitizeText(title),
+      description: sanitizeText(description),
       thumbnailUrl,
     };
   } catch {
@@ -196,7 +235,7 @@ export function getBatchMax() {
 
 /** True when OG scraped the YouTube site chrome instead of the video. */
 export function isJunkYoutubeTitle(title: string | null | undefined) {
-  const t = (title ?? "").trim();
+  const t = (sanitizeText(title) ?? "").trim();
   if (!t || t === "-") return true;
   if (/^youtube$/i.test(t)) return true;
   if (/- youtube$/i.test(t)) return true;
@@ -206,8 +245,17 @@ export function isJunkYoutubeTitle(title: string | null | undefined) {
 export function isGenericYoutubeDescription(
   description: string | null | undefined,
 ) {
-  const d = (description ?? "").trim();
+  const d = (sanitizeText(description) ?? "").trim();
   return /^enjoy the videos and music you love/i.test(d);
+}
+
+export function isUsefulNotesCandidate(
+  description: string | null | undefined,
+) {
+  const d = sanitizeText(description);
+  if (!d) return false;
+  if (isGenericYoutubeDescription(d)) return false;
+  return d.length >= 40;
 }
 
 /** Prefer a non-junk title from candidates (first usable wins). */
@@ -215,7 +263,8 @@ export function pickUsableTitle(
   ...candidates: Array<string | null | undefined>
 ) {
   for (const c of candidates) {
-    if (c?.trim() && !isJunkYoutubeTitle(c)) return c.trim();
+    const cleaned = sanitizeText(c);
+    if (cleaned && !isJunkYoutubeTitle(cleaned)) return cleaned;
   }
   return null;
 }
@@ -237,7 +286,7 @@ export async function fetchYoutubeOEmbed(
       thumbnail_url?: string;
     };
     return {
-      title: data.title ?? null,
+      title: sanitizeText(data.title ?? null),
       thumbnailUrl: data.thumbnail_url ?? null,
     };
   } catch {
@@ -258,8 +307,8 @@ export async function fetchLinkPreview(
   const junkDesc = isGenericYoutubeDescription(og.description);
 
   return {
-    title: yt?.title ?? (junkTitle ? null : og.title),
-    description: junkDesc ? null : og.description,
+    title: sanitizeText(yt?.title ?? (junkTitle ? null : og.title)),
+    description: junkDesc ? null : sanitizeText(og.description),
     thumbnailUrl: og.thumbnailUrl ?? yt?.thumbnailUrl ?? null,
   };
 }

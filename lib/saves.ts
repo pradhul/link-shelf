@@ -3,9 +3,12 @@ import { getDb } from "./db";
 import {
   detectSource,
   fetchLinkPreview,
+  hasEncodedEntities,
   isGenericYoutubeDescription,
   isJunkYoutubeTitle,
+  isUsefulNotesCandidate,
   pickUsableTitle,
+  sanitizeText,
 } from "./og";
 import { saveTags, saves, tags, type Save, type Tag } from "./schema";
 import { findOrCreateTag } from "./tags";
@@ -246,13 +249,21 @@ export async function createOrUpdateSave(input: {
   } | null;
 }) {
   const db = getDb();
-  const og = input.og ?? (await fetchLinkPreview(input.url));
+  const ogRaw = input.og ?? (await fetchLinkPreview(input.url));
+  const og = {
+    title: sanitizeText(ogRaw.title),
+    description: sanitizeText(ogRaw.description),
+    thumbnailUrl: ogRaw.thumbnailUrl,
+  };
   const source = input.source ?? detectSource(input.url);
   const ogTitle = isJunkYoutubeTitle(og.title) ? null : og.title;
   const ogDescription = isGenericYoutubeDescription(og.description)
     ? null
     : og.description;
-  const inputTitle = isJunkYoutubeTitle(input.title) ? null : input.title;
+  const inputTitle = isJunkYoutubeTitle(input.title)
+    ? null
+    : sanitizeText(input.title);
+  const inputNotes = sanitizeText(input.notes);
 
   const shouldSetTags =
     input.classifications !== undefined || input.topTagName !== undefined;
@@ -276,14 +287,15 @@ export async function createOrUpdateSave(input: {
   if (existing) {
     const existingTitle = isJunkYoutubeTitle(existing.title)
       ? null
-      : existing.title;
+      : sanitizeText(existing.title);
     const [updated] = await db
       .update(saves)
       .set({
         title: pickUsableTitle(inputTitle, ogTitle, existingTitle),
-        description: ogDescription ?? existing.description,
+        description:
+          ogDescription ?? sanitizeText(existing.description) ?? existing.description,
         thumbnailUrl: og.thumbnailUrl ?? existing.thumbnailUrl,
-        notes: input.notes ?? existing.notes,
+        notes: inputNotes ?? sanitizeText(existing.notes) ?? existing.notes,
         updatedAt: new Date(),
       })
       .where(eq(saves.id, existing.id))
@@ -303,7 +315,7 @@ export async function createOrUpdateSave(input: {
       description: ogDescription,
       thumbnailUrl: og.thumbnailUrl,
       source,
-      notes: input.notes ?? null,
+      notes: inputNotes,
       addedVia: input.addedVia,
       telegramUsername: input.telegramUsername ?? null,
     })
@@ -331,8 +343,11 @@ export async function updateSave(
   const patch: Partial<typeof saves.$inferInsert> = {
     updatedAt: new Date(),
   };
-  if (data.title !== undefined) patch.title = data.title;
-  if (data.notes !== undefined) patch.notes = data.notes;
+  if (data.title !== undefined) patch.title = sanitizeText(data.title);
+  if (data.notes !== undefined) {
+    patch.notes =
+      data.notes === null ? null : sanitizeText(data.notes);
+  }
   if (data.isFavorite !== undefined) patch.isFavorite = data.isFavorite;
 
   const [updated] = await db
@@ -362,20 +377,29 @@ export async function refreshSavePreview(id: string) {
   if (!existing) return null;
 
   const og = await fetchLinkPreview(existing.url);
-  const ogTitle = isJunkYoutubeTitle(og.title) ? null : og.title;
+  const ogTitle = isJunkYoutubeTitle(og.title) ? null : sanitizeText(og.title);
   const ogDescription = isGenericYoutubeDescription(og.description)
     ? null
-    : og.description;
+    : sanitizeText(og.description);
   const existingTitle = isJunkYoutubeTitle(existing.title)
     ? null
-    : existing.title;
+    : sanitizeText(existing.title);
+
+  const nextNotes =
+    !existing.notes?.trim() && isUsefulNotesCandidate(ogDescription)
+      ? ogDescription
+      : sanitizeText(existing.notes) ?? existing.notes;
 
   const [updated] = await db
     .update(saves)
     .set({
       title: pickUsableTitle(ogTitle, existingTitle),
-      description: ogDescription ?? existing.description,
+      description:
+        ogDescription ??
+        sanitizeText(existing.description) ??
+        existing.description,
       thumbnailUrl: og.thumbnailUrl ?? existing.thumbnailUrl,
+      notes: nextNotes,
       updatedAt: new Date(),
     })
     .where(eq(saves.id, id))
@@ -391,15 +415,17 @@ export async function refreshJunkYoutubePreviews(limit = 25) {
   const rows = await db
     .select()
     .from(saves)
-    .where(eq(saves.source, "youtube"))
     .orderBy(desc(saves.updatedAt))
-    .limit(200);
+    .limit(300);
 
   const junk = rows
     .filter(
       (r) =>
-        isJunkYoutubeTitle(r.title) ||
-        isGenericYoutubeDescription(r.description),
+        hasEncodedEntities(r.title) ||
+        hasEncodedEntities(r.description) ||
+        (r.source === "youtube" &&
+          (isJunkYoutubeTitle(r.title) ||
+            isGenericYoutubeDescription(r.description))),
     )
     .slice(0, limit);
 

@@ -143,7 +143,7 @@ export function ShelfShell({
                 onClick={bulkRepairYoutube}
                 className="rounded-lg bg-surface-container-high px-3 py-2 text-xs font-semibold text-on-surface disabled:opacity-60"
               >
-                {repairing ? "Repairing…" : "Repair junk YouTube titles"}
+                {repairing ? "Repairing…" : "Repair titles & notes"}
               </button>
             )}
           </div>
