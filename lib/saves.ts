@@ -1,6 +1,12 @@
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { detectSource, fetchOgData } from "./og";
+import {
+  detectSource,
+  fetchLinkPreview,
+  isGenericYoutubeDescription,
+  isJunkYoutubeTitle,
+  pickUsableTitle,
+} from "./og";
 import { saveTags, saves, tags, type Save, type Tag } from "./schema";
 import { findOrCreateTag } from "./tags";
 
@@ -160,8 +166,13 @@ export async function createOrUpdateSave(input: {
   } | null;
 }) {
   const db = getDb();
-  const og = input.og ?? (await fetchOgData(input.url));
+  const og = input.og ?? (await fetchLinkPreview(input.url));
   const source = input.source ?? detectSource(input.url);
+  const ogTitle = isJunkYoutubeTitle(og.title) ? null : og.title;
+  const ogDescription = isGenericYoutubeDescription(og.description)
+    ? null
+    : og.description;
+  const inputTitle = isJunkYoutubeTitle(input.title) ? null : input.title;
 
   let topTag: Tag | null = null;
   let subTag: Tag | null = null;
@@ -177,11 +188,14 @@ export async function createOrUpdateSave(input: {
   });
 
   if (existing) {
+    const existingTitle = isJunkYoutubeTitle(existing.title)
+      ? null
+      : existing.title;
     const [updated] = await db
       .update(saves)
       .set({
-        title: input.title ?? og.title ?? existing.title,
-        description: og.description ?? existing.description,
+        title: pickUsableTitle(inputTitle, ogTitle, existingTitle),
+        description: ogDescription ?? existing.description,
         thumbnailUrl: og.thumbnailUrl ?? existing.thumbnailUrl,
         notes: input.notes ?? existing.notes,
         updatedAt: new Date(),
@@ -201,8 +215,8 @@ export async function createOrUpdateSave(input: {
     .insert(saves)
     .values({
       url: input.url,
-      title: input.title ?? og.title,
-      description: og.description,
+      title: pickUsableTitle(inputTitle, ogTitle),
+      description: ogDescription,
       thumbnailUrl: og.thumbnailUrl,
       source,
       notes: input.notes ?? null,

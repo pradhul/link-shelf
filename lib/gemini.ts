@@ -79,6 +79,32 @@ function isRateLimitError(err: unknown) {
   );
 }
 
+const DEFAULT_MODEL = "gemini-3.1-flash-lite";
+const FALLBACK_MODELS = [
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash-lite",
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+] as const;
+
+function getModelCandidates() {
+  const preferred = process.env.GEMINI_MODEL?.trim();
+  const chain = preferred
+    ? [preferred, ...FALLBACK_MODELS.filter((m) => m !== preferred)]
+    : [...FALLBACK_MODELS];
+  return [...new Set(chain)];
+}
+
+function isModelUnavailableError(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    /\b404\b/.test(msg) ||
+    /not[\s_-]?found/i.test(msg) ||
+    /invalid model/i.test(msg) ||
+    /model[^\n]{0,80}(unavailable|does not exist|not supported)/i.test(msg)
+  );
+}
+
 export function formatGeminiError(err: unknown) {
   const msg = err instanceof Error ? err.message : String(err);
   if (isRateLimitError(err)) {
@@ -87,8 +113,8 @@ export function formatGeminiError(err: unknown) {
   if (/API key/i.test(msg) || /403/i.test(msg) || /permission/i.test(msg)) {
     return "Gemini API key rejected. Check GEMINI_API_KEY on Vercel.";
   }
-  if (/not found|404|model/i.test(msg)) {
-    return "Gemini model unavailable. Set GEMINI_MODEL (e.g. gemini-2.5-flash).";
+  if (isModelUnavailableError(err)) {
+    return `Gemini model unavailable. Set GEMINI_MODEL (e.g. ${DEFAULT_MODEL}).`;
   }
   return msg.slice(0, 180);
 }
@@ -181,16 +207,12 @@ Rules:
   return parts;
 }
 
-export async function categorizeLinks(
+async function generateCategorizeText(
+  modelName: string,
+  apiKey: string,
   items: LinkForCategorize[],
   tagTree: TagTreeNode[],
-): Promise<CategorizeResult[]> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set");
-  }
-
-  const modelName = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
     model: modelName,
@@ -210,19 +232,22 @@ export async function categorizeLinks(
     });
   };
 
-  let text: string;
   try {
-    text = await run(true);
+    return await run(true);
   } catch (err) {
     // On persistent 429, retry once text-only (much smaller request)
     if (isRateLimitError(err)) {
       await sleep(20_000);
-      text = await run(false);
-    } else {
-      throw err;
+      return await run(false);
     }
+    throw err;
   }
+}
 
+function parseCategorizeResults(
+  text: string,
+  items: LinkForCategorize[],
+): CategorizeResult[] {
   const parsed = extractJson(text);
   if (!Array.isArray(parsed)) {
     throw new Error("Gemini returned non-array JSON");
@@ -258,4 +283,36 @@ export async function categorizeLinks(
       reason: "missing model result",
     };
   });
+}
+
+export async function categorizeLinks(
+  items: LinkForCategorize[],
+  tagTree: TagTreeNode[],
+): Promise<CategorizeResult[]> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set");
+  }
+
+  const candidates = getModelCandidates();
+  let lastErr: unknown;
+  for (const modelName of candidates) {
+    try {
+      const text = await generateCategorizeText(
+        modelName,
+        apiKey,
+        items,
+        tagTree,
+      );
+      return parseCategorizeResults(text, items);
+    } catch (err) {
+      lastErr = err;
+      // Don't burn through models on quota — surface rate limit immediately
+      if (isRateLimitError(err)) throw err;
+      if (!isModelUnavailableError(err)) throw err;
+    }
+  }
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error(`Gemini model unavailable (tried: ${candidates.join(", ")})`);
 }

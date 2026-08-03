@@ -194,7 +194,33 @@ export function getBatchMax() {
   return Number.isFinite(n) && n > 0 ? Math.min(n, 10) : 5;
 }
 
-/** Enrich YouTube links when HTML OG is empty/blocked. */
+/** True when OG scraped the YouTube site chrome instead of the video. */
+export function isJunkYoutubeTitle(title: string | null | undefined) {
+  const t = (title ?? "").trim();
+  if (!t || t === "-") return true;
+  if (/^youtube$/i.test(t)) return true;
+  if (/- youtube$/i.test(t)) return true;
+  return false;
+}
+
+export function isGenericYoutubeDescription(
+  description: string | null | undefined,
+) {
+  const d = (description ?? "").trim();
+  return /^enjoy the videos and music you love/i.test(d);
+}
+
+/** Prefer a non-junk title from candidates (first usable wins). */
+export function pickUsableTitle(
+  ...candidates: Array<string | null | undefined>
+) {
+  for (const c of candidates) {
+    if (c?.trim() && !isJunkYoutubeTitle(c)) return c.trim();
+  }
+  return null;
+}
+
+/** Enrich YouTube links when HTML OG is empty/blocked or junk. */
 export async function fetchYoutubeOEmbed(
   url: string,
 ): Promise<Pick<OgData, "title" | "thumbnailUrl"> | null> {
@@ -224,12 +250,16 @@ export async function fetchLinkPreview(
   opts?: { timeoutMs?: number },
 ): Promise<OgData> {
   const og = await fetchOgData(url, opts);
-  if (og.title && og.thumbnailUrl) return og;
+  if (detectSource(url) !== "youtube") return og;
+
+  // Always call oEmbed for YouTube — OG often has a valid thumbnail but a junk title
   const yt = await fetchYoutubeOEmbed(url);
-  if (!yt) return og;
+  const junkTitle = isJunkYoutubeTitle(og.title);
+  const junkDesc = isGenericYoutubeDescription(og.description);
+
   return {
-    title: og.title ?? yt.title,
-    description: og.description,
-    thumbnailUrl: og.thumbnailUrl ?? yt.thumbnailUrl,
+    title: yt?.title ?? (junkTitle ? null : og.title),
+    description: junkDesc ? null : og.description,
+    thumbnailUrl: og.thumbnailUrl ?? yt?.thumbnailUrl ?? null,
   };
 }
