@@ -1,3 +1,5 @@
+import { stripInvalidUtf16 } from "./text";
+
 export type OgData = {
   title: string | null;
   description: string | null;
@@ -83,7 +85,7 @@ export function sanitizeText(input: string | null | undefined): string | null {
   let s = String(input);
   // Run decode twice in case entities were double-encoded
   s = decodeHtml(decodeHtml(s));
-  s = s
+  s = stripInvalidUtf16(s)
     .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD]/g, "")
     .replace(/\u00A0/g, " ")
     .replace(/[ \t]+\n/g, "\n")

@@ -3,6 +3,10 @@
  * Run: npx tsx scripts/verify-recommend-grounding.ts
  */
 import assert from "node:assert/strict";
+import {
+  sanitizeTelegramText,
+  truncateChars,
+} from "../lib/text";
 
 // Mirror generateDailyFoodPicks grounding rules for offline verification
 type Candidate = { id: string; title: string | null; url: string };
@@ -63,3 +67,17 @@ assert.match(sample, dateRe);
 console.log("ok: grounding rejects hallucinated IDs; date format OK");
 console.log("ok: dual delivery = same daily_recommendations row for /today + Telegram");
 console.log("ok: idempotency = getOrCreate returns stored row when date exists");
+
+// Unicode-safe title truncation (emoji must not produce unpaired surrogates)
+const unpaired =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+// High surrogate of 🀄️ (U+1F004) then more text — classic mid-emoji String#slice break
+const withFlagEmoji = `${"x".repeat(110)}\u{1F1EE}\u{1F1F3}END`;
+// UTF-16 slice mid-emoji (code-unit index 111 splits the first regional indicator)
+const brokenSlice = `${withFlagEmoji.slice(0, 111)}…`;
+assert.match(brokenSlice, unpaired);
+const safe = truncateChars(withFlagEmoji, 112);
+assert.doesNotMatch(safe, unpaired);
+assert.ok(Array.from(safe).length <= 112);
+assert.equal(sanitizeTelegramText("hello\uD83C…world"), "hello…world");
+console.log("ok: truncateChars keeps Telegram-safe UTF-16");

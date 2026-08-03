@@ -9,6 +9,7 @@ import {
   type DailyRecommendationPick,
 } from "./schema";
 import { getSavesByIds, type SaveWithTags } from "./saves";
+import { sanitizeTelegramText, truncateChars } from "./text";
 
 /**
  * RAG v1 (no pgvector yet): filter cooking-tagged saves in SQL, then ask Gemini
@@ -333,16 +334,16 @@ export function formatTelegramDigest(rec: TodaysRecommendations): string {
   const lines = [`Today's eats (${rec.date})`, ""];
   if (rec.picks.length === 0) {
     lines.push("No picks today.");
-    return lines.join("\n");
+    return sanitizeTelegramText(lines.join("\n"));
   }
   rec.picks.forEach((pick, i) => {
     const raw = pick.save?.title?.trim() || pick.save?.url || pick.saveId;
-    const title = raw.length > 120 ? `${raw.slice(0, 117)}…` : raw;
+    const title = truncateChars(raw, 120);
     const url = pick.save?.url;
     lines.push(`${i + 1}. ${title}`);
     if (url) lines.push(url);
-    lines.push(pick.reason);
+    lines.push(sanitizeTelegramText(pick.reason));
     lines.push("");
   });
-  return lines.join("\n").trim();
+  return sanitizeTelegramText(lines.join("\n").trim());
 }

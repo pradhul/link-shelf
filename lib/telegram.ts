@@ -1,3 +1,5 @@
+import { sanitizeTelegramText } from "./text";
+
 const TELEGRAM_API = "https://api.telegram.org";
 
 export function getBotToken() {
@@ -70,21 +72,44 @@ export function skipTypeKeyboard(): InlineKeyboard {
   };
 }
 
+type TelegramApiResponse = {
+  ok: boolean;
+  description?: string;
+};
+
+async function telegramApi(
+  method: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const token = getBotToken();
+  const res = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  let data: TelegramApiResponse | null = null;
+  try {
+    data = (await res.json()) as TelegramApiResponse;
+  } catch {
+    /* non-JSON */
+  }
+  if (!res.ok || !data?.ok) {
+    const detail =
+      data?.description ?? `HTTP ${res.status} ${res.statusText}`.trim();
+    throw new Error(`Telegram ${method} failed: ${detail}`);
+  }
+}
+
 export async function sendMessage(
   chatId: number,
   text: string,
   replyMarkup?: InlineKeyboard,
 ) {
-  const token = getBotToken();
-  await fetch(`${TELEGRAM_API}/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      disable_web_page_preview: true,
-      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-    }),
+  await telegramApi("sendMessage", {
+    chat_id: chatId,
+    text: sanitizeTelegramText(text),
+    disable_web_page_preview: true,
+    ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
   });
 }
 
@@ -92,14 +117,9 @@ export async function answerCallbackQuery(
   callbackQueryId: string,
   text?: string,
 ) {
-  const token = getBotToken();
-  await fetch(`${TELEGRAM_API}/bot${token}/answerCallbackQuery`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      callback_query_id: callbackQueryId,
-      ...(text ? { text } : {}),
-    }),
+  await telegramApi("answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    ...(text ? { text: sanitizeTelegramText(text) } : {}),
   });
 }
 
@@ -109,30 +129,20 @@ export async function editMessageText(
   text: string,
   replyMarkup?: InlineKeyboard | { inline_keyboard: [] },
 ) {
-  const token = getBotToken();
-  await fetch(`${TELEGRAM_API}/bot${token}/editMessageText`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      message_id: messageId,
-      text,
-      disable_web_page_preview: true,
-      reply_markup: replyMarkup ?? { inline_keyboard: [] },
-    }),
+  await telegramApi("editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text: sanitizeTelegramText(text),
+    disable_web_page_preview: true,
+    reply_markup: replyMarkup ?? { inline_keyboard: [] },
   });
 }
 
 export async function clearInlineKeyboard(chatId: number, messageId: number) {
-  const token = getBotToken();
-  await fetch(`${TELEGRAM_API}/bot${token}/editMessageReplyMarkup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      message_id: messageId,
-      reply_markup: { inline_keyboard: [] },
-    }),
+  await telegramApi("editMessageReplyMarkup", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: { inline_keyboard: [] },
   });
 }
 

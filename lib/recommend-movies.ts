@@ -11,6 +11,7 @@ import {
   type WeeklyMovieRecommendationPick,
 } from "./schema";
 import { getSavesByIds } from "./saves";
+import { sanitizeTelegramText, truncateChars } from "./text";
 
 export { getMovieTagSlugs, saveHasMovieTag } from "./movie-tags";
 
@@ -331,16 +332,16 @@ export function formatMovieTelegramDigest(rec: FridayMovies): string {
   const lines = [`Friday movie night (${rec.date})`, ""];
   if (rec.picks.length === 0) {
     lines.push("No movie picks this week.");
-    return lines.join("\n");
+    return sanitizeTelegramText(lines.join("\n"));
   }
   rec.picks.forEach((pick, i) => {
     const raw = pick.save?.title?.trim() || pick.save?.url || pick.saveId;
-    const title = raw.length > 120 ? `${raw.slice(0, 117)}…` : raw;
+    const title = truncateChars(raw, 120);
     const url = pick.save?.url;
     lines.push(`${i + 1}. ${title}`);
     if (url) lines.push(url);
-    lines.push(pick.reason);
+    lines.push(sanitizeTelegramText(pick.reason));
     lines.push("");
   });
-  return lines.join("\n").trim();
+  return sanitizeTelegramText(lines.join("\n").trim());
 }
