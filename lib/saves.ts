@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   detectSource,
@@ -10,9 +10,23 @@ import {
 import { saveTags, saves, tags, type Save, type Tag } from "./schema";
 import { findOrCreateTag } from "./tags";
 
-export type SaveWithTags = Save & {
-  topTag: Tag | null;
+export type Classification = {
+  topTag: Tag;
   subTag: Tag | null;
+};
+
+export type SaveWithTags = Save & {
+  classifications: Classification[];
+};
+
+export type ClassificationInput = {
+  topTagId: string;
+  subTagId?: string | null;
+};
+
+export type ClassificationNameInput = {
+  topTagName: string;
+  subTagName?: string | null;
 };
 
 async function attachTags(rows: Save[]): Promise<SaveWithTags[]> {
@@ -50,24 +64,30 @@ async function attachTags(rows: Save[]): Promise<SaveWithTags[]> {
   const parentMap = new Map(parents.map((p) => [p.id, p]));
 
   return rows.map((row) => {
-    const assigned = bySave.get(row.id) ?? [];
-    const leaf = assigned[0] ?? null;
-    if (!leaf) {
-      return { ...row, topTag: null, subTag: null };
+    const leaves = bySave.get(row.id) ?? [];
+    const classifications: Classification[] = [];
+    const seenTop = new Set<string>();
+
+    for (const leaf of leaves) {
+      if (leaf.parentId) {
+        const top = parentMap.get(leaf.parentId);
+        if (!top || seenTop.has(top.id)) continue;
+        seenTop.add(top.id);
+        classifications.push({ topTag: top, subTag: leaf });
+      } else {
+        if (seenTop.has(leaf.id)) continue;
+        seenTop.add(leaf.id);
+        classifications.push({ topTag: leaf, subTag: null });
+      }
     }
-    if (leaf.parentId) {
-      return {
-        ...row,
-        topTag: parentMap.get(leaf.parentId) ?? null,
-        subTag: leaf,
-      };
-    }
-    return { ...row, topTag: leaf, subTag: null };
+
+    return { ...row, classifications };
   });
 }
 
 export async function listSaves(opts: {
   favoritesOnly?: boolean;
+  uncategorizedOnly?: boolean;
   tagId?: string;
   includeDescendants?: boolean;
   subtagId?: string;
@@ -92,7 +112,18 @@ export async function listSaves(opts: {
   }
 
   let filteredIds: string[] | null = null;
-  if (opts.subtagId) {
+  if (opts.uncategorizedOnly) {
+    const tagged = await db
+      .selectDistinct({ saveId: saveTags.saveId })
+      .from(saveTags);
+    const taggedIds = tagged.map((t) => t.saveId);
+    if (taggedIds.length === 0) {
+      filteredIds = null;
+    } else {
+      conditions.push(notInArray(saves.id, taggedIds));
+      filteredIds = null;
+    }
+  } else if (opts.subtagId) {
     const linked = await db
       .select({ saveId: saveTags.saveId })
       .from(saveTags)
@@ -136,23 +167,72 @@ export async function getSaveById(id: string) {
   return withTags;
 }
 
+export async function setSaveClassifications(
+  saveId: string,
+  pairs: ClassificationInput[],
+) {
+  const db = getDb();
+  await db.delete(saveTags).where(eq(saveTags.saveId, saveId));
+
+  const leafIds: string[] = [];
+  const seenTop = new Set<string>();
+  for (const pair of pairs) {
+    if (!pair.topTagId || seenTop.has(pair.topTagId)) continue;
+    seenTop.add(pair.topTagId);
+    leafIds.push(pair.subTagId || pair.topTagId);
+  }
+
+  if (leafIds.length > 0) {
+    await db.insert(saveTags).values(
+      leafIds.map((tagId) => ({ saveId, tagId })),
+    );
+  }
+}
+
+/** @deprecated single-pair helper — prefer setSaveClassifications */
 export async function setSaveClassification(
   saveId: string,
   topTagId: string | null,
   subTagId: string | null,
 ) {
-  const db = getDb();
-  await db.delete(saveTags).where(eq(saveTags.saveId, saveId));
-  const leafId = subTagId ?? topTagId;
-  if (leafId) {
-    await db.insert(saveTags).values({ saveId, tagId: leafId });
+  if (!topTagId) {
+    await setSaveClassifications(saveId, []);
+    return;
   }
+  await setSaveClassifications(saveId, [
+    { topTagId, subTagId: subTagId ?? null },
+  ]);
+}
+
+async function resolveNamePairs(
+  names: ClassificationNameInput[],
+): Promise<ClassificationInput[]> {
+  const pairs: ClassificationInput[] = [];
+  const seenTop = new Set<string>();
+  for (const name of names) {
+    const topName = name.topTagName?.trim();
+    if (!topName) continue;
+    const top = await findOrCreateTag(topName, null);
+    if (seenTop.has(top.id)) continue;
+    seenTop.add(top.id);
+    let subTagId: string | null = null;
+    const subName = name.subTagName?.trim();
+    if (subName) {
+      const sub = await findOrCreateTag(subName, top.id);
+      subTagId = sub.id;
+    }
+    pairs.push({ topTagId: top.id, subTagId });
+  }
+  return pairs;
 }
 
 export async function createOrUpdateSave(input: {
   url: string;
+  /** Single pair (Telegram). Pass null to clear tags when setTags is intended. */
   topTagName?: string | null;
   subTagName?: string | null;
+  /** Multiple top tags with optional subtags (web / Gemini). */
+  classifications?: ClassificationNameInput[];
   addedVia: "telegram" | "web";
   telegramUsername?: string | null;
   title?: string | null;
@@ -174,13 +254,19 @@ export async function createOrUpdateSave(input: {
     : og.description;
   const inputTitle = isJunkYoutubeTitle(input.title) ? null : input.title;
 
-  let topTag: Tag | null = null;
-  let subTag: Tag | null = null;
-  if (input.topTagName) {
-    topTag = await findOrCreateTag(input.topTagName, null);
-    if (input.subTagName) {
-      subTag = await findOrCreateTag(input.subTagName, topTag.id);
-    }
+  const shouldSetTags =
+    input.classifications !== undefined || input.topTagName !== undefined;
+
+  let pairs: ClassificationInput[] = [];
+  if (input.classifications !== undefined) {
+    pairs = await resolveNamePairs(input.classifications);
+  } else if (input.topTagName) {
+    pairs = await resolveNamePairs([
+      {
+        topTagName: input.topTagName,
+        subTagName: input.subTagName,
+      },
+    ]);
   }
 
   const existing = await db.query.saves.findFirst({
@@ -202,11 +288,9 @@ export async function createOrUpdateSave(input: {
       })
       .where(eq(saves.id, existing.id))
       .returning();
-    await setSaveClassification(
-      existing.id,
-      topTag?.id ?? null,
-      subTag?.id ?? null,
-    );
+    if (shouldSetTags) {
+      await setSaveClassifications(existing.id, pairs);
+    }
     const [result] = await attachTags([updated]);
     return { save: result, created: false };
   }
@@ -225,11 +309,9 @@ export async function createOrUpdateSave(input: {
     })
     .returning();
 
-  await setSaveClassification(
-    created.id,
-    topTag?.id ?? null,
-    subTag?.id ?? null,
-  );
+  if (shouldSetTags) {
+    await setSaveClassifications(created.id, pairs);
+  }
   const [result] = await attachTags([created]);
   return { save: result, created: true };
 }
@@ -242,6 +324,7 @@ export async function updateSave(
     isFavorite?: boolean;
     topTagId?: string | null;
     subTagId?: string | null;
+    classifications?: ClassificationInput[];
   },
 ) {
   const db = getDb();
@@ -260,7 +343,9 @@ export async function updateSave(
 
   if (!updated) return null;
 
-  if (data.topTagId !== undefined || data.subTagId !== undefined) {
+  if (data.classifications !== undefined) {
+    await setSaveClassifications(id, data.classifications);
+  } else if (data.topTagId !== undefined || data.subTagId !== undefined) {
     await setSaveClassification(
       id,
       data.topTagId ?? null,
@@ -269,6 +354,62 @@ export async function updateSave(
   }
 
   return getSaveById(id);
+}
+
+export async function refreshSavePreview(id: string) {
+  const db = getDb();
+  const existing = await db.query.saves.findFirst({ where: eq(saves.id, id) });
+  if (!existing) return null;
+
+  const og = await fetchLinkPreview(existing.url);
+  const ogTitle = isJunkYoutubeTitle(og.title) ? null : og.title;
+  const ogDescription = isGenericYoutubeDescription(og.description)
+    ? null
+    : og.description;
+  const existingTitle = isJunkYoutubeTitle(existing.title)
+    ? null
+    : existing.title;
+
+  const [updated] = await db
+    .update(saves)
+    .set({
+      title: pickUsableTitle(ogTitle, existingTitle),
+      description: ogDescription ?? existing.description,
+      thumbnailUrl: og.thumbnailUrl ?? existing.thumbnailUrl,
+      updatedAt: new Date(),
+    })
+    .where(eq(saves.id, id))
+    .returning();
+
+  if (!updated) return null;
+  const [result] = await attachTags([updated]);
+  return result;
+}
+
+export async function refreshJunkYoutubePreviews(limit = 25) {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(saves)
+    .where(eq(saves.source, "youtube"))
+    .orderBy(desc(saves.updatedAt))
+    .limit(200);
+
+  const junk = rows
+    .filter(
+      (r) =>
+        isJunkYoutubeTitle(r.title) ||
+        isGenericYoutubeDescription(r.description),
+    )
+    .slice(0, limit);
+
+  const results: SaveWithTags[] = [];
+  for (const row of junk) {
+    const updated = await refreshSavePreview(row.id);
+    if (updated) results.push(updated);
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return { refreshed: results.length, ids: results.map((r) => r.id) };
 }
 
 export async function deleteSave(id: string) {
@@ -281,5 +422,16 @@ export async function countSaves() {
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(saves);
+  return row?.count ?? 0;
+}
+
+export async function countUncategorized() {
+  const db = getDb();
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(saves)
+    .where(
+      sql`${saves.id} NOT IN (SELECT DISTINCT ${saveTags.saveId} FROM ${saveTags})`,
+    );
   return row?.count ?? 0;
 }

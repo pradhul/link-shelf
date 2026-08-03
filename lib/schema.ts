@@ -2,6 +2,7 @@ import {
   boolean,
   bigint,
   foreignKey,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -52,6 +53,7 @@ export const tags = pgTable(
     slug: text("slug").notNull(),
     parentId: uuid("parent_id"),
     icon: text("icon"),
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

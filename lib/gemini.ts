@@ -10,13 +10,23 @@ export type LinkForCategorize = {
   image?: ThumbnailBytes | null;
 };
 
+export type ClassificationSuggestion = {
+  topTag: string;
+  subTag: string | null;
+  confidence: number;
+};
+
 export type CategorizeResult = {
   index: number;
   url: string;
-  topTag: string | null;
-  subTag: string | null;
+  classifications: ClassificationSuggestion[];
+  /** Highest confidence among classifications (or legacy single). */
   confidence: number;
   reason: string;
+  /** @deprecated use classifications[0] */
+  topTag: string | null;
+  /** @deprecated use classifications[0] */
+  subTag: string | null;
 };
 
 export function getConfidenceThreshold() {
@@ -45,23 +55,73 @@ function normalizeResult(
   index: number,
   fallbackUrl: string,
 ): CategorizeResult {
-  const confidence = Number(item.confidence);
   const idx = Number(item.index);
+  const reason = typeof item.reason === "string" ? item.reason : "";
+
+  const classifications: ClassificationSuggestion[] = [];
+  const rawList = item.classifications;
+  if (Array.isArray(rawList)) {
+    for (const row of rawList.slice(0, 3)) {
+      if (!row || typeof row !== "object") continue;
+      const r = row as Record<string, unknown>;
+      const top =
+        typeof r.topTag === "string" && r.topTag.trim() ? r.topTag.trim() : null;
+      if (!top) continue;
+      const conf = Number(r.confidence);
+      classifications.push({
+        topTag: top,
+        subTag:
+          typeof r.subTag === "string" && r.subTag.trim()
+            ? r.subTag.trim()
+            : null,
+        confidence: Number.isFinite(conf)
+          ? Math.min(1, Math.max(0, conf))
+          : 0,
+      });
+    }
+  }
+
+  // Legacy single-pair response
+  if (classifications.length === 0) {
+    const topTag =
+      typeof item.topTag === "string" && item.topTag.trim()
+        ? item.topTag.trim()
+        : null;
+    const subTag =
+      typeof item.subTag === "string" && item.subTag.trim()
+        ? item.subTag.trim()
+        : null;
+    const confidence = Number(item.confidence);
+    if (topTag) {
+      classifications.push({
+        topTag,
+        subTag,
+        confidence: Number.isFinite(confidence)
+          ? Math.min(1, Math.max(0, confidence))
+          : 0,
+      });
+    }
+  }
+
+  // Dedupe by topTag (keep highest confidence)
+  const byTop = new Map<string, ClassificationSuggestion>();
+  for (const c of classifications) {
+    const key = c.topTag.toLowerCase();
+    const prev = byTop.get(key);
+    if (!prev || c.confidence > prev.confidence) byTop.set(key, c);
+  }
+  const deduped = [...byTop.values()].slice(0, 3);
+  const confidence =
+    deduped.length > 0 ? Math.max(...deduped.map((c) => c.confidence)) : 0;
+
   return {
     index: Number.isFinite(idx) ? idx : index,
     url: typeof item.url === "string" ? item.url : fallbackUrl,
-    topTag:
-      typeof item.topTag === "string" && item.topTag.trim()
-        ? item.topTag.trim()
-        : null,
-    subTag:
-      typeof item.subTag === "string" && item.subTag.trim()
-        ? item.subTag.trim()
-        : null,
-    confidence: Number.isFinite(confidence)
-      ? Math.min(1, Math.max(0, confidence))
-      : 0,
-    reason: typeof item.reason === "string" ? item.reason : "",
+    classifications: deduped,
+    confidence,
+    reason,
+    topTag: deduped[0]?.topTag ?? null,
+    subTag: deduped[0]?.subTag ?? null,
   };
 }
 
@@ -150,7 +210,9 @@ ${tagHint}
 
 Rules:
 - Return a JSON array only, one object per input link, SAME ORDER as input.
-- Each object MUST include: { "index": number (0-based), "url": string, "topTag": string|null, "subTag": string|null, "confidence": number 0-1, "reason": string }
+- Each object MUST include: { "index": number (0-based), "url": string, "classifications": [{ "topTag": string, "subTag": string|null, "confidence": number 0-1 }], "reason": string }
+- classifications: 1–3 pairs max. Same topTag at most once. Prefer multiple tops only when clearly relevant.
+- Also set overall fields for compatibility: "topTag", "subTag", "confidence" matching the highest-confidence classification (or null/0).
 - Copy the url EXACTLY as given in the input (including query strings).
 - Prefer existing topTag/subTag names when they fit.
 - You may invent a new topTag/subTag only if nothing fits; keep names short (English preferred for new tags when possible).
@@ -277,6 +339,7 @@ function parseCategorizeResults(
     return {
       index: i,
       url: item.url,
+      classifications: [],
       topTag: null,
       subTag: null,
       confidence: 0,

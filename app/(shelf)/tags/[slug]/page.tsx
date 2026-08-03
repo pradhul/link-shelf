@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ShelfShell } from "@/components/ShelfShell";
-import { listSaves } from "@/lib/saves";
+import { countUncategorized, listSaves } from "@/lib/saves";
 import { getSubtags, getTagBySlug, getTopLevelTags } from "@/lib/tags";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function TagShelfPage({
     ? subtags.find((s) => s.slug === sub) ?? null
     : null;
 
-  const [saves, topTags] = await Promise.all([
+  const [saves, topTags, uncategorizedCount] = await Promise.all([
     listSaves({
       q,
       tagId: tag.id,
@@ -32,6 +32,7 @@ export default async function TagShelfPage({
       includeDescendants: !activeSub,
     }),
     getTopLevelTags(),
+    countUncategorized(),
   ]);
 
   return (
@@ -39,6 +40,7 @@ export default async function TagShelfPage({
       <ShelfShell
         saves={saves}
         topTags={topTags}
+        uncategorizedCount={uncategorizedCount}
         title={`Shelf / ${tag.name}`}
         subtitle={`${saves.length} links`}
         subtags={subtags}

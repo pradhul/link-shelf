@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { deleteSave, getSaveById, updateSave } from "@/lib/saves";
+import {
+  deleteSave,
+  getSaveById,
+  refreshSavePreview,
+  updateSave,
+} from "@/lib/saves";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,13 +21,31 @@ export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params;
   try {
     const body = await request.json();
+    const classifications = Array.isArray(body.classifications)
+      ? body.classifications
+          .map(
+            (c: { topTagId?: string; subTagId?: string | null }) => ({
+              topTagId: String(c.topTagId ?? ""),
+              subTagId: c.subTagId ? String(c.subTagId) : null,
+            }),
+          )
+          .filter((c: { topTagId: string }) => c.topTagId)
+      : undefined;
+
     const save = await updateSave(id, {
       title: body.title !== undefined ? String(body.title) : undefined,
       notes: body.notes !== undefined ? body.notes : undefined,
       isFavorite:
         body.isFavorite !== undefined ? Boolean(body.isFavorite) : undefined,
-      topTagId: body.topTagId !== undefined ? body.topTagId : undefined,
-      subTagId: body.subTagId !== undefined ? body.subTagId : undefined,
+      classifications,
+      topTagId:
+        classifications === undefined && body.topTagId !== undefined
+          ? body.topTagId
+          : undefined,
+      subTagId:
+        classifications === undefined && body.subTagId !== undefined
+          ? body.subTagId
+          : undefined,
     });
     if (!save) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

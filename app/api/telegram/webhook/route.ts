@@ -177,18 +177,21 @@ async function handleBatchUrls(
   for (let i = 0; i < enriched.length; i++) {
     const item = enriched[i];
     const cat = results?.[i] ?? null;
-    const confident =
-      Boolean(cat) &&
-      cat!.confidence >= threshold &&
-      Boolean(cat!.topTag?.trim());
-
-    const topTagName = confident ? cat!.topTag : null;
-    const subTagName = confident ? cat!.subTag : null;
+    const confidentPairs =
+      cat?.classifications.filter(
+        (c) => c.confidence >= threshold && Boolean(c.topTag?.trim()),
+      ) ?? [];
+    const confident = confidentPairs.length > 0;
 
     const { save, created } = await createOrUpdateSave({
       url: item.url,
-      topTagName,
-      subTagName,
+      classifications: confident
+        ? confidentPairs.map((c) => ({
+            topTagName: c.topTag,
+            subTagName: c.subTag,
+          }))
+        : [],
+      topTagName: confident ? undefined : null,
       addedVia: "telegram",
       telegramUsername: username,
       title: item.title,
@@ -197,11 +200,16 @@ async function handleBatchUrls(
     });
 
     const label = save.title || item.url;
-    if (confident && topTagName) {
+    if (confident) {
       tagged += 1;
-      const path = [topTagName, subTagName].filter(Boolean).join("/");
+      const paths = confidentPairs
+        .map((c) => [c.topTag, c.subTag].filter(Boolean).join("/"))
+        .join(", ");
+      const confPct = Math.round(
+        Math.max(...confidentPairs.map((c) => c.confidence)) * 100,
+      );
       lines.push(
-        `• ${created ? "Saved" : "Updated"}: ${label}\n  → ${path} (${Math.round(cat!.confidence * 100)}%)`,
+        `• ${created ? "Saved" : "Updated"}: ${label}\n  → ${paths} (${confPct}%)`,
       );
     } else {
       uncategorized += 1;

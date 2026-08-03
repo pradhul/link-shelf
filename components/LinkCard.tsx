@@ -8,6 +8,7 @@ type Props = {
   onEdit: (save: SaveWithTags) => void;
   onToggleFavorite: (save: SaveWithTags) => void;
   onDelete: (save: SaveWithTags) => void;
+  onRefreshPreview?: (save: SaveWithTags) => void;
 };
 
 function formatDate(d: Date | string) {
@@ -26,13 +27,13 @@ function hostname(url: string) {
   }
 }
 
-export function LinkCard({ save, onEdit, onToggleFavorite, onDelete }: Props) {
-  const topTagHref = save.topTag ? `/tags/${save.topTag.slug}` : null;
-  const subTagHref =
-    save.topTag && save.subTag
-      ? `/tags/${save.topTag.slug}?sub=${save.subTag.slug}`
-      : null;
-
+export function LinkCard({
+  save,
+  onEdit,
+  onToggleFavorite,
+  onDelete,
+  onRefreshPreview,
+}: Props) {
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/30 transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
@@ -83,22 +84,24 @@ export function LinkCard({ save, onEdit, onToggleFavorite, onDelete }: Props) {
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex flex-wrap gap-1.5">
-          {save.topTag && topTagHref && (
-            <Link
-              href={topTagHref}
-              className="rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-secondary-container transition hover:brightness-95"
-            >
-              {save.topTag.name}
-            </Link>
-          )}
-          {save.subTag && subTagHref && (
-            <Link
-              href={subTagHref}
-              className="rounded-full bg-surface-container-high px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant transition hover:bg-surface-container-highest"
-            >
-              {save.subTag.name}
-            </Link>
-          )}
+          {save.classifications.map(({ topTag, subTag }) => (
+            <span key={topTag.id} className="contents">
+              <Link
+                href={`/tags/${topTag.slug}`}
+                className="rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-secondary-container transition hover:brightness-95"
+              >
+                {topTag.name}
+              </Link>
+              {subTag && (
+                <Link
+                  href={`/tags/${topTag.slug}?sub=${subTag.slug}`}
+                  className="rounded-full bg-surface-container-high px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant transition hover:bg-surface-container-highest"
+                >
+                  {subTag.name}
+                </Link>
+              )}
+            </span>
+          ))}
         </div>
 
         <a
@@ -109,6 +112,12 @@ export function LinkCard({ save, onEdit, onToggleFavorite, onDelete }: Props) {
         >
           {save.title || hostname(save.url)}
         </a>
+
+        {save.notes?.trim() && (
+          <p className="line-clamp-1 text-sm italic text-on-surface-variant">
+            {save.notes.trim()}
+          </p>
+        )}
 
         {save.description && (
           <a
@@ -131,6 +140,19 @@ export function LinkCard({ save, onEdit, onToggleFavorite, onDelete }: Props) {
             {hostname(save.url)}
           </a>
           <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100 max-md:opacity-100">
+            {onRefreshPreview && (
+              <button
+                type="button"
+                aria-label="Refresh preview"
+                title="Refresh preview"
+                onClick={() => onRefreshPreview(save)}
+                className="rounded-full p-1 hover:bg-surface-container-high"
+              >
+                <span className="material-symbols-outlined text-[16px]">
+                  refresh
+                </span>
+              </button>
+            )}
             <button
               type="button"
               aria-label="Edit"

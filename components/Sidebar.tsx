@@ -6,10 +6,15 @@ import type { Tag } from "@/lib/schema";
 
 type Props = {
   topTags: Tag[];
+  uncategorizedCount?: number;
   onAddLink: () => void;
 };
 
-export function Sidebar({ topTags, onAddLink }: Props) {
+export function Sidebar({
+  topTags,
+  uncategorizedCount = 0,
+  onAddLink,
+}: Props) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -24,6 +29,7 @@ export function Sidebar({ topTags, onAddLink }: Props) {
     label: string,
     icon: string,
     active: boolean,
+    badge?: number,
   ) => (
     <Link
       href={href}
@@ -34,7 +40,12 @@ export function Sidebar({ topTags, onAddLink }: Props) {
       }`}
     >
       <span className="material-symbols-outlined text-[20px]">{icon}</span>
-      {label}
+      <span className="flex-1">{label}</span>
+      {typeof badge === "number" && badge > 0 && (
+        <span className="rounded-full bg-tertiary-fixed-dim/20 px-2 py-0.5 text-[10px] font-bold text-on-surface">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 
@@ -59,13 +70,28 @@ export function Sidebar({ topTags, onAddLink }: Props) {
             "star",
             pathname === "/favorites",
           )}
+          {navItem(
+            "/uncategorized",
+            "Uncategorized",
+            "label_off",
+            pathname === "/uncategorized",
+            uncategorizedCount,
+          )}
         </nav>
       </div>
 
       <div className="mb-6 flex-1 overflow-y-auto">
-        <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-outline">
-          Top Tags
-        </p>
+        <div className="mb-2 flex items-center justify-between px-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-outline">
+            Top Tags
+          </p>
+          <Link
+            href="/tags/manage"
+            className="text-[10px] font-semibold uppercase tracking-wide text-primary"
+          >
+            Manage
+          </Link>
+        </div>
         <nav className="flex flex-col gap-1">
           {topTags.length === 0 && (
             <p className="px-3 py-2 text-sm text-on-surface-variant">

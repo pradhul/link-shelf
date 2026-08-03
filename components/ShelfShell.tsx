@@ -15,9 +15,11 @@ type Props = {
   topTags: Tag[];
   title: string;
   subtitle: string;
+  uncategorizedCount?: number;
   subtags?: Tag[];
   activeSubtagSlug?: string | null;
   tagSlug?: string;
+  showBulkRepair?: boolean;
 };
 
 export function ShelfShell({
@@ -25,14 +27,17 @@ export function ShelfShell({
   topTags,
   title,
   subtitle,
+  uncategorizedCount = 0,
   subtags,
   activeSubtagSlug,
   tagSlug,
+  showBulkRepair = false,
 }: Props) {
   const router = useRouter();
   const [mobileNav, setMobileNav] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<SaveWithTags | null>(null);
+  const [repairing, setRepairing] = useState(false);
 
   function refresh() {
     router.refresh();
@@ -53,6 +58,27 @@ export function ShelfShell({
     refresh();
   }
 
+  async function refreshPreview(save: SaveWithTags) {
+    await fetch(`/api/saves/${save.id}/refresh-preview`, { method: "POST" });
+    refresh();
+  }
+
+  async function bulkRepairYoutube() {
+    setRepairing(true);
+    try {
+      const res = await fetch("/api/saves/refresh-junk-youtube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 25 }),
+      });
+      const data = await res.json();
+      alert(`Refreshed ${data.refreshed ?? 0} YouTube previews`);
+      refresh();
+    } finally {
+      setRepairing(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <div
@@ -69,6 +95,7 @@ export function ShelfShell({
         <div className="relative z-50 h-full">
           <Sidebar
             topTags={topTags}
+            uncategorizedCount={uncategorizedCount}
             onAddLink={() => {
               setMobileNav(false);
               setAddOpen(true);
@@ -102,11 +129,23 @@ export function ShelfShell({
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-8">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-on-surface md:text-3xl">
-              {title}
-            </h1>
-            <p className="mt-1 text-sm text-on-surface-variant">{subtitle}</p>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-on-surface md:text-3xl">
+                {title}
+              </h1>
+              <p className="mt-1 text-sm text-on-surface-variant">{subtitle}</p>
+            </div>
+            {showBulkRepair && (
+              <button
+                type="button"
+                disabled={repairing}
+                onClick={bulkRepairYoutube}
+                className="rounded-lg bg-surface-container-high px-3 py-2 text-xs font-semibold text-on-surface disabled:opacity-60"
+              >
+                {repairing ? "Repairing…" : "Repair junk YouTube titles"}
+              </button>
+            )}
           </div>
 
           {subtags && tagSlug && (
@@ -156,6 +195,7 @@ export function ShelfShell({
                   onEdit={setEditing}
                   onToggleFavorite={toggleFavorite}
                   onDelete={remove}
+                  onRefreshPreview={refreshPreview}
                 />
               ))}
             </div>

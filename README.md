@@ -5,11 +5,15 @@ Household PWA for saving Instagram, YouTube, and other links — via Telegram bo
 ## Features
 
 - Shared household password login
-- Tag → optional subtag organization
+- Tag → optional subtag organization (**multiple top tags** per link)
 - Telegram bot ingest (link → tag buttons / type)
 - **Multi-link auto-tag** via Gemini (preview image + metadata; low confidence → uncategorized)
+- **Uncategorized** shelf with sidebar badge
+- Tag management (rename, merge, delete empty, reorder)
+- Refresh preview / repair junk YouTube titles
 - Manual **Add Link** in the app
 - Favorites, search, edit notes/classification
+- PWA **Share Target** (“Share to Link Shelf”)
 - Installable PWA (online-only)
 
 ## Setup

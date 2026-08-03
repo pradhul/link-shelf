@@ -1,15 +1,16 @@
 import { Suspense } from "react";
 import { ShelfShell } from "@/components/ShelfShell";
-import { countSaves, listSaves } from "@/lib/saves";
+import { countSaves, countUncategorized, listSaves } from "@/lib/saves";
 import { getTopLevelTags } from "@/lib/tags";
 
 export const dynamic = "force-dynamic";
 
 async function AllItems({ q }: { q?: string }) {
-  const [saves, topTags, total] = await Promise.all([
+  const [saves, topTags, total, uncategorizedCount] = await Promise.all([
     listSaves({ q }),
     getTopLevelTags(),
     countSaves(),
+    countUncategorized(),
   ]);
 
   return (
@@ -17,8 +18,10 @@ async function AllItems({ q }: { q?: string }) {
       <ShelfShell
         saves={saves}
         topTags={topTags}
+        uncategorizedCount={uncategorizedCount}
         title="Your Collection"
         subtitle={`Showing: All Items • ${total} links total`}
+        showBulkRepair
       />
     </Suspense>
   );

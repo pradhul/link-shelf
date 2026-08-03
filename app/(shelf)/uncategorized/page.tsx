@@ -5,14 +5,14 @@ import { getTopLevelTags } from "@/lib/tags";
 
 export const dynamic = "force-dynamic";
 
-export default async function FavoritesPage({
+export default async function UncategorizedPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
   const [saves, topTags, uncategorizedCount] = await Promise.all([
-    listSaves({ favoritesOnly: true, q }),
+    listSaves({ uncategorizedOnly: true, q }),
     getTopLevelTags(),
     countUncategorized(),
   ]);
@@ -23,8 +23,9 @@ export default async function FavoritesPage({
         saves={saves}
         topTags={topTags}
         uncategorizedCount={uncategorizedCount}
-        title="Favorites"
-        subtitle={`${saves.length} starred links`}
+        title="Uncategorized"
+        subtitle={`${uncategorizedCount} links need a tag — edit in the app`}
+        showBulkRepair
       />
     </Suspense>
   );
