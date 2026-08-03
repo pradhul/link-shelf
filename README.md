@@ -18,6 +18,20 @@ Household PWA for saving Instagram, YouTube, and other links — via Telegram bo
 - **Today’s eats** — daily food picks from cooking-tagged saves (SQL-tag RAG + Gemini; not invented recipes)
 - **Friday movie** — Friday night picks from movie-tagged saves; mark **watched** to skip next time
 - Telegram digests: food **daily 8PM IST**, movies **Friday 7PM IST** (same picks as `/today` and `/movies`)
+- Auto-translate non-English titles/notes/descriptions to English on save (Gemini)
+
+## Upcoming feature ideas
+
+Hobby / free-tier friendly ideas that build on the existing Gemini, RAG, and Telegram setup. Rough priority order:
+
+1. **Cron consolidation** — one daily dispatcher cron that fans out food, movies, and future weekly jobs (Vercel Hobby maxes out at 2 crons today).
+2. **Semantic search (“Ask your shelf”)** — embed saves with Gemini + Neon `pgvector`; natural-language search in the PWA and Telegram `/find`. Unlocks better recommendation retrieval later.
+3. **“From the vault” weekly digest** — Telegram resurfacing of 3–5 older saves so bookmarks don’t go stale.
+4. **Recipe cards + grocery list** — extract ingredients/steps from food saves for `/today`; merge a grocery list and send it via Telegram.
+5. **Duplicate / near-duplicate detection** — normalize share URLs; warn on save when an embedding-similar link already exists.
+6. **Dead link checker** — weekly HEAD/GET batch; badge + filter for unavailable reels/videos.
+7. **Shelf insights (`/stats`)** — saves-per-week, top tags, source breakdown, who saved what (SQL only; optional monthly Gemini blurb).
+8. **Voice notes via Telegram** — voice memo after a link → Gemini transcription appended to notes (feeds search + recommendations).
 
 ## Setup
 
