@@ -15,6 +15,9 @@ Household PWA for saving Instagram, YouTube, and other links — via Telegram bo
 - Favorites, search, edit notes/classification
 - PWA **Share Target** (“Share to Link Shelf”)
 - Installable PWA (online-only)
+- **Today’s eats** — daily food picks from cooking-tagged saves (SQL-tag RAG + Gemini; not invented recipes)
+- **Friday movie** — Friday night picks from movie-tagged saves; mark **watched** to skip next time
+- Telegram digests: food **daily 8PM IST**, movies **Friday 7PM IST** (same picks as `/today` and `/movies`)
 
 ## Setup
 
@@ -45,10 +48,14 @@ npm run db:push
 | `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) |
 | `TELEGRAM_WEBHOOK_SECRET` | Random secret for webhook verification |
 | `TELEGRAM_ALLOWED_USER_IDS` | Comma-separated Telegram user IDs |
-| `GEMINI_API_KEY` | Google AI Studio key for multi-link auto-tag |
+| `TELEGRAM_DIGEST_CHAT_ID` | Optional: one chat for food/movie digests (else each allowed user) |
+| `GEMINI_API_KEY` | Google AI Studio key (auto-tag + recommendations) |
 | `GEMINI_MODEL` | Optional (default `gemini-3.1-flash-lite`; falls back through Flash-Lite / Flash) |
 | `GEMINI_CONFIDENCE_THRESHOLD` | Optional (default `0.7`) |
 | `GEMINI_BATCH_MAX` | Optional max URLs per message (default `5`) |
+| `CRON_SECRET` | Bearer secret for Vercel cron routes |
+| `FOOD_TAG_SLUGS` | Optional cooking top-tag slugs (default `recipes,recipe,cooking,food`) |
+| `MOVIE_TAG_SLUGS` | Optional movie top-tag slugs (default `movies,movie,films,film`) |
 
 Find your Telegram user ID via [@userinfobot](https://t.me/userinfobot). Get a Gemini key at [Google AI Studio](https://aistudio.google.com/apikey).
 
@@ -81,6 +88,17 @@ Open [http://localhost:3000](http://localhost:3000), log in with `HOUSEHOLD_PASS
 2. Send **two or more** URLs in one message → Gemini auto-categorizes (uses title + preview image when available). High confidence gets tags; low confidence saves **uncategorized** for editing in the app.
 3. Links appear in the PWA with OG title/thumbnail when available.
 
+### Daily recommendations (RAG v1)
+
+Picks are **retrieved** from your tagged saves first, then Gemini chooses/explains from that shortlist only (citations = save IDs / URLs). No inventing dinners or movies you never saved.
+
+| Surface | Schedule (IST) | Cron (UTC) | Route |
+| --- | --- | --- | --- |
+| Food → `/today` + Telegram | Daily 8:00 PM | `30 14 * * *` | `/api/cron/daily-food` |
+| Movies → `/movies` + Telegram | Friday 7:00 PM | `30 13 * * 5` | `/api/cron/friday-movies` |
+
+Crons require `Authorization: Bearer $CRON_SECRET` (or `?secret=`). Use **Generate** on `/today` or `/movies` anytime to force a new run. Movie recs skip `is_watched` saves; toggle watched on movie-tagged cards.
+
 ## Design reference
 
 Stitch HTML/screenshots live in [`design/stitch/`](design/stitch/). Screens: Household Login, Link Gallery, Recipes Shelf, Edit Link Classification.
@@ -90,4 +108,6 @@ Stitch HTML/screenshots live in [`design/stitch/`](design/stitch/). Screens: Hou
 - Next.js App Router + Tailwind CSS v4
 - Neon + Drizzle ORM
 - Telegram Bot API webhook
+- Google Gemini (auto-tag + grounded recommendations)
+- Vercel Cron (`vercel.json`)
 - `proxy.ts` for session gating (Next.js 16)
