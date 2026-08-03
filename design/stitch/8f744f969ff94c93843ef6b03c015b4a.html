@@ -1,0 +1,46 @@
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container":"#f0eee9","on-secondary-fixed":"#0d1f15","background":"#fbf9f4","on-tertiary-fixed-variant":"#6c3a00","surface-bright":"#fbf9f4","primary-fixed":"#d6e3ff","on-primary-fixed":"#001b3c","outline":"#74777f","surface-dim":"#dbdad5","inverse-surface":"#30312e","on-primary-fixed-variant":"#2d476f","tertiary":"#351a00","inverse-primary":"#adc7f7","surface-container-highest":"#e4e2dd","on-secondary-fixed-variant":"#384b3f","on-tertiary":"#ffffff","error":"#ba1a1a","surface-container-low":"#f5f3ee","on-primary":"#ffffff","inverse-on-surface":"#f2f1ec","secondary":"#506356","surface-variant":"#e4e2dd","on-surface-variant":"#43474e","tertiary-fixed":"#ffdcc1","surface-tint":"#455f88","tertiary-fixed-dim":"#ffb878","secondary-fixed":"#d2e8d8","on-secondary-container":"#56695c","on-surface":"#1b1c19","primary":"#002045","on-secondary":"#ffffff","error-container":"#ffdad6","outline-variant":"#c4c6cf","on-error":"#ffffff","secondary-container":"#d2e8d8","on-background":"#1b1c19","surface":"#fbf9f4","on-primary-container":"#86a0cd","primary-container":"#1a365d","primary-fixed-dim":"#adc7f7","on-tertiary-fixed":"#2e1500","on-error-container":"#93000a","surface-container-lowest":"#ffffff","tertiary-container":"#532c00","surface-container-high":"#eae8e3","secondary-fixed-dim":"#b7ccbc","on-tertiary-container":"#d88e47"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"unit-1":"0.25rem","base":"4px","unit-4":"1rem","margin-desktop":"2.5rem","unit-2":"0.5rem","gutter":"1rem","margin-mobile":"1rem","unit-8":"2rem","unit-6":"1.5rem"},"fontFamily":{"label-caps":["Inter"],"headline-lg-mobile":["Inter"],"body-sm":["Inter"],"headline-md":["Inter"],"body-lg":["Inter"],"headline-lg":["Inter"]},"fontSize":{"label-caps":["12px",{"lineHeight":"1","letterSpacing":"0.05em","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"1.2","fontWeight":"700"}],"body-sm":["14px",{"lineHeight":"1.5","fontWeight":"400"}],"headline-md":["20px",{"lineHeight":"1.4","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"1.6","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/></head><body class="bg-background font-body-lg text-on-background flex items-center justify-center min-h-screen"><main class="w-full max-w-md"><div class="flex flex-col w-full h-[calc(100vh-theme(spacing.margin-desktop))] items-center justify-center p-margin-mobile md:p-margin-desktop">
+<div class="w-full max-w-sm bg-surface-container-lowest rounded-xl shadow-lg p-unit-8 relative overflow-hidden flex flex-col gap-unit-6 z-10 transition-transform duration-500 hover:-translate-y-1">
+<div class="absolute -top-16 -right-16 w-32 h-32 bg-primary-fixed-dim/20 rounded-full blur-2xl z-0"></div>
+<div class="absolute -bottom-16 -left-16 w-32 h-32 bg-tertiary-fixed-dim/20 rounded-full blur-2xl z-0"></div>
+<div class="relative z-10 text-center flex flex-col gap-unit-2">
+<div class="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center mx-auto mb-unit-2 shadow-md">
+<span class="material-symbols-outlined text-[24px]">library_books</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary">Welcome to the Household Shelf</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Enter the shared household password to access the library.</p>
+</div>
+<form class="relative z-10 flex flex-col gap-unit-4" onsubmit="event.preventDefault(); this.querySelector('button[type=submit]').classList.add('opacity-75', 'cursor-not-allowed'); this.querySelector('.spinner').classList.remove('hidden'); setTimeout(() => { this.querySelector('button[type=submit]').classList.remove('opacity-75', 'cursor-not-allowed'); this.querySelector('.spinner').classList.add('hidden'); }, 1500);">
+<div class="flex flex-col gap-unit-1 group">
+<label class="font-label-caps text-label-caps text-on-surface-variant group-focus-within:text-primary transition-colors" for="password">Household Password</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low text-on-surface font-body-lg text-body-lg rounded-lg px-unit-4 py-unit-2 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest transition-all" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+<button aria-label="Toggle password visibility" class="absolute right-unit-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-surface-container-highest" onclick="const input = document.getElementById('password'); const icon = this.querySelector('span'); if(input.type === 'password') { input.type = 'text'; icon.textContent = 'visibility_off'; } else { input.type = 'password'; icon.textContent = 'visibility'; }" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-unit-2">
+<div class="relative flex items-center">
+<input class="peer appearance-none w-5 h-5 bg-surface-container-low rounded-DEFAULT checked:bg-primary transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-container-lowest" id="remember" type="checkbox"/>
+<span class="material-symbols-outlined text-[16px] text-on-primary absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<label class="font-body-sm text-body-sm text-on-surface-variant cursor-pointer select-none" for="remember">Remember this device</label>
+</div>
+<button class="mt-unit-2 w-full bg-primary text-on-primary font-headline-md text-headline-md py-unit-2 rounded-lg shadow-md hover:shadow-lg hover:-translate-y-px active:translate-y-px transition-all flex items-center justify-center gap-unit-2 group" type="submit">
+<span>Access Shelf</span>
+<span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+<svg class="spinner hidden animate-spin -ml-1 mr-3 h-5 w-5 text-on-primary absolute" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+<path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+</svg>
+</button>
+</form>
+</div>
+<div class="mt-unit-8 flex gap-unit-2 opacity-50">
+<div class="w-1.5 h-1.5 rounded-full bg-on-background"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-on-background"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-on-background"></div>
+</div>
+</div></main></body></html>

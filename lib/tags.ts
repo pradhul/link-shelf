@@ -1,0 +1,112 @@
+import { and, eq, isNull } from "drizzle-orm";
+import { getDb } from "./db";
+import { tags, type Tag } from "./schema";
+
+const DEFAULT_ICONS: Record<string, string> = {
+  recipes: "restaurant",
+  recipe: "restaurant",
+  travel: "explore",
+  funny: "mood",
+  fitness: "fitness_center",
+  workout: "fitness_center",
+  design: "palette",
+  tech: "memory",
+  shopping: "shopping_bag",
+};
+
+export function slugify(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 64);
+}
+
+export function titleCase(input: string) {
+  return input
+    .trim()
+    .split(/[\s-_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function parseTagPath(input: string): {
+  tag: string;
+  subtag?: string;
+} | null {
+  const trimmed = input.trim();
+  if (!trimmed || /^skip$/i.test(trimmed)) return null;
+
+  const parts = trimmed
+    .split(/[/>|]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return { tag: parts[0] };
+  return { tag: parts[0], subtag: parts[1] };
+}
+
+export async function findOrCreateTag(
+  name: string,
+  parentId: string | null = null,
+): Promise<Tag> {
+  const db = getDb();
+  const slug = slugify(name);
+  if (!slug) {
+    throw new Error("Invalid tag name");
+  }
+
+  const existing = parentId
+    ? await db.query.tags.findFirst({
+        where: and(eq(tags.slug, slug), eq(tags.parentId, parentId)),
+      })
+    : await db.query.tags.findFirst({
+        where: and(eq(tags.slug, slug), isNull(tags.parentId)),
+      });
+
+  if (existing) return existing;
+
+  const icon = parentId ? null : DEFAULT_ICONS[slug] ?? "label";
+  const [created] = await db
+    .insert(tags)
+    .values({
+      name: titleCase(name),
+      slug,
+      parentId,
+      icon,
+    })
+    .returning();
+
+  return created;
+}
+
+export async function getTopLevelTags() {
+  const db = getDb();
+  return db.query.tags.findMany({
+    where: isNull(tags.parentId),
+    orderBy: (t, { asc }) => [asc(t.name)],
+  });
+}
+
+export async function getSubtags(parentId: string) {
+  const db = getDb();
+  return db.query.tags.findMany({
+    where: eq(tags.parentId, parentId),
+    orderBy: (t, { asc }) => [asc(t.name)],
+  });
+}
+
+export async function getTagBySlug(slug: string, parentId: string | null = null) {
+  const db = getDb();
+  if (parentId) {
+    return db.query.tags.findFirst({
+      where: and(eq(tags.slug, slug), eq(tags.parentId, parentId)),
+    });
+  }
+  return db.query.tags.findFirst({
+    where: and(eq(tags.slug, slug), isNull(tags.parentId)),
+  });
+}

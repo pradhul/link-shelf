@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fbf9f4;
+  --foreground: #1b1c19;
+}
+
+@theme inline {
+  --color-background: #fbf9f4;
+  --color-foreground: #1b1c19;
+  --color-surface: #fbf9f4;
+  --color-surface-container: #f0eee9;
+  --color-surface-container-low: #f5f3ee;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #eae8e3;
+  --color-surface-container-highest: #e4e2dd;
+  --color-surface-variant: #e4e2dd;
+  --color-on-surface: #1b1c19;
+  --color-on-surface-variant: #43474e;
+  --color-on-background: #1b1c19;
+  --color-primary: #002045;
+  --color-primary-container: #1a365d;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #86a0cd;
+  --color-primary-fixed: #d6e3ff;
+  --color-primary-fixed-dim: #adc7f7;
+  --color-secondary: #506356;
+  --color-secondary-container: #d2e8d8;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #56695c;
+  --color-tertiary: #351a00;
+  --color-tertiary-container: #532c00;
+  --color-tertiary-fixed-dim: #ffb878;
+  --color-on-tertiary: #ffffff;
+  --color-outline: #74777f;
+  --color-outline-variant: #c4c6cf;
+  --color-error: #ba1a1a;
+  --font-sans: var(--font-inter);
+
+  --spacing-unit-1: 0.25rem;
+  --spacing-unit-2: 0.5rem;
+  --spacing-unit-4: 1rem;
+  --spacing-unit-6: 1.5rem;
+  --spacing-unit-8: 2rem;
+  --spacing-gutter: 1rem;
+  --spacing-margin-mobile: 1rem;
+  --spacing-margin-desktop: 2.5rem;
+
+  --radius-DEFAULT: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+}
+
+.material-symbols-outlined.fill {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c4c6cf;
+  border-radius: 9999px;
+}

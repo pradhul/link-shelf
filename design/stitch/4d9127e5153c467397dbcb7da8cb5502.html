@@ -1,0 +1,204 @@
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container":"#f0eee9","on-secondary-fixed":"#0d1f15","background":"#fbf9f4","on-tertiary-fixed-variant":"#6c3a00","surface-bright":"#fbf9f4","primary-fixed":"#d6e3ff","on-primary-fixed":"#001b3c","outline":"#74777f","surface-dim":"#dbdad5","inverse-surface":"#30312e","on-primary-fixed-variant":"#2d476f","tertiary":"#351a00","inverse-primary":"#adc7f7","surface-container-highest":"#e4e2dd","on-secondary-fixed-variant":"#384b3f","on-tertiary":"#ffffff","error":"#ba1a1a","surface-container-low":"#f5f3ee","on-primary":"#ffffff","inverse-on-surface":"#f2f1ec","secondary":"#506356","surface-variant":"#e4e2dd","on-surface-variant":"#43474e","tertiary-fixed":"#ffdcc1","surface-tint":"#455f88","tertiary-fixed-dim":"#ffb878","secondary-fixed":"#d2e8d8","on-secondary-container":"#56695c","on-surface":"#1b1c19","primary":"#002045","on-secondary":"#ffffff","error-container":"#ffdad6","outline-variant":"#c4c6cf","on-error":"#ffffff","secondary-container":"#d2e8d8","on-background":"#1b1c19","surface":"#fbf9f4","on-primary-container":"#86a0cd","primary-container":"#1a365d","primary-fixed-dim":"#adc7f7","on-tertiary-fixed":"#2e1500","on-error-container":"#93000a","surface-container-lowest":"#ffffff","tertiary-container":"#532c00","surface-container-high":"#eae8e3","secondary-fixed-dim":"#b7ccbc","on-tertiary-container":"#d88e47"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"unit-1":"0.25rem","base":"4px","unit-4":"1rem","margin-desktop":"2.5rem","unit-2":"0.5rem","gutter":"1rem","margin-mobile":"1rem","unit-8":"2rem","unit-6":"1.5rem"},"fontFamily":{"label-caps":["Inter"],"headline-lg-mobile":["Inter"],"body-sm":["Inter"],"headline-md":["Inter"],"body-lg":["Inter"],"headline-lg":["Inter"]},"fontSize":{"label-caps":["12px",{"lineHeight":"1","letterSpacing":"0.05em","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"1.2","fontWeight":"700"}],"body-sm":["14px",{"lineHeight":"1.5","fontWeight":"400"}],"headline-md":["20px",{"lineHeight":"1.4","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"1.6","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/></head><body class="bg-background font-body-lg text-on-background"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-low z-50 flex flex-col pt-unit-6 shadow-[4px_0_12px_rgba(0,0,0,0.03)]"><div class="px-unit-6 mb-unit-8 flex items-center gap-unit-2 text-primary"><span class="material-symbols-outlined text-[28px]">shelves</span><span class="font-headline-md text-headline-md tracking-tight">The Link Shelf</span></div><nav class="flex-1 px-unit-4 space-y-unit-2" data-active-classes="bg-secondary-container text-on-secondary-container font-semibold"><div class="px-unit-4 py-unit-2 font-label-caps text-label-caps text-on-surface-variant/60">COLLECTIONS</div><a aria-current="page" class="flex items-center px-unit-4 py-unit-2 rounded-lg transition-all group bg-secondary-container text-on-secondary-container font-semibold" data-path="all-items" href="#"><span class="material-symbols-outlined mr-unit-4 text-[20px]">view_agenda</span><span>All Items</span></a><a class="flex items-center px-unit-4 py-unit-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="favorites" href="#"><span class="material-symbols-outlined mr-unit-4 text-[20px]">star</span><span>Favorites</span></a><div class="pt-unit-6 px-unit-4 py-unit-2 font-label-caps text-label-caps text-on-surface-variant/60">TOP TAGS</div><a class="flex items-center px-unit-4 py-unit-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="recipes" href="#"><span class="material-symbols-outlined mr-unit-4 text-[20px]">restaurant</span><span>Recipes</span></a><a class="flex items-center px-unit-4 py-unit-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="travel" href="#"><span class="material-symbols-outlined mr-unit-4 text-[20px]">explore</span><span>Travel</span></a><a class="flex items-center px-unit-4 py-unit-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="funny" href="#"><span class="material-symbols-outlined mr-unit-4 text-[20px]">mood</span><span>Funny</span></a><a class="flex items-center px-unit-4 py-unit-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="fitness" href="#"><span class="material-symbols-outlined mr-unit-4 text-[20px]">fitness_center</span><span>Fitness</span></a></nav><div class="px-unit-4 pt-unit-4 border-t border-outline-variant"><a class="flex items-center px-unit-4 py-unit-3 rounded-lg text-error hover:bg-error-container/20 transition-all" data-path="logout" href="#"><span class="material-symbols-outlined mr-unit-4 text-[20px]">logout</span><span>Logout</span></a></div></aside><div class="pl-64 flex flex-col min-h-screen"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl z-40 flex items-center px-unit-8 justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex-1 max-w-xl"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant">search</span><input class="w-full bg-surface-container-highest/50 border-none rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary/20 text-body-sm" placeholder="Search your shelf..." type="text"/></div></div><div class="flex items-center gap-unit-6"><button class="flex items-center gap-unit-2 px-unit-4 py-unit-2 bg-primary text-on-primary rounded-full hover:shadow-lg transition-shadow"><span class="material-symbols-outlined text-[20px]">add</span><span class="text-body-sm font-semibold">Add Link</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 flex-1 bg-background"><div class="flex flex-col w-full h-full relative">
+<div class="px-unit-8 py-unit-6 flex items-center justify-between z-10 sticky top-16 bg-background/95 backdrop-blur-md">
+<div class="flex flex-col gap-unit-1">
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">Your Collection</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-unit-2">
+                 Showing: All Items
+                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-surface-tint opacity-50"></span>
+                 42 links total
+             </p>
+</div>
+<div class="flex items-center gap-unit-4">
+<button class="flex items-center gap-unit-2 px-unit-4 py-unit-2 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors group">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-primary transition-colors">filter_list</span>
+<span class="font-body-sm text-body-sm font-medium">Filter</span>
+</button>
+<div class="h-6 w-[1px] bg-outline-variant/30"></div>
+<div class="flex items-center gap-unit-1 bg-surface-container-low rounded-lg p-1">
+<button class="p-2 rounded bg-surface shadow-sm text-primary flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+</button>
+<button class="p-2 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest transition-all flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">view_list</span>
+</button>
+</div>
+</div>
+</div>
+<div class="p-unit-8 pt-unit-2">
+<div class="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-unit-6 space-y-unit-6 w-full pb-unit-8">
+<div class="break-inside-avoid bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_24px_-4px_rgba(0,32,69,0.06)] hover:-translate-y-1 hover:shadow-[0_12px_32px_-4px_rgba(0,32,69,0.12)] transition-all duration-300 group flex flex-col cursor-pointer">
+<div class="relative w-full aspect-square overflow-hidden bg-surface-variant">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" data-alt="Overhead shot of a beautifully plated creamy garlic pasta with fresh herbs, sitting on a rustic wooden dining table. Soft, warm natural window light streaming across. Inviting domestic cooking aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCcneSIihO1fPhVawKYF8dOlqPbc-dSBDXjyNjccl_4erVx8apEcVFC4oYN_YNeAzwz6-18FSvnvdr5Hpu8W5jTyNd2IZ7kDspOMa_zRfPi5wPOkRspJi2yFpPYB6B1hl3Hxp4LRnUe5XyK04BzBv49YAqh1s48lmUnYW_oAqj1hXZsM2igd2V1NF_NNubQqzy_T1Kbt3YH-BBiET8wwxAFqgeRZfMVm_HyB1qlBV4-zgahsZ0bnzZtg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-60"></div>
+<div class="absolute top-unit-4 right-unit-4 flex gap-unit-2">
+<div class="w-8 h-8 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center shadow-sm text-primary">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+</div>
+</div>
+<div class="absolute bottom-unit-4 left-unit-4 flex gap-unit-2 items-center">
+<span class="px-unit-3 py-unit-1 rounded-full bg-secondary-container text-on-secondary-container font-label-caps text-label-caps shadow-sm">RECIPE</span>
+<span class="px-unit-3 py-unit-1 rounded-full bg-background/80 backdrop-blur-sm text-on-surface font-label-caps text-label-caps shadow-sm border-[0.5px] border-outline-variant/20">PASTA</span>
+</div>
+</div>
+<div class="p-unit-5 flex flex-col gap-unit-3 flex-1 bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md text-on-surface leading-tight group-hover:text-primary transition-colors line-clamp-2">The Ultimate 15-Minute Creamy Garlic Pasta</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">This quick weeknight dinner relies on pantry staples but tastes incredibly rich. A lifesaver for busy evenings.</p>
+<div class="mt-auto pt-unit-4 flex items-center justify-between border-t border-outline-variant/20">
+<div class="flex items-center gap-unit-2">
+<img class="w-5 h-5 rounded-full object-cover" data-alt="A small circular avatar logo for a cooking channel, simple minimalist design on a white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCl1qwkVSk1G3n22yjHKl9iCLoubGO65BfF3fIRa5x_pb0tdYs9mUs6XggOuROsla9r7LqsDo8HBbQGY4-vYbMTRYGhl4i6XYAZfZHVhPf0v46yj84UK_6PRKx-oJR3503A13REKGSn8j33Pq1aAsbGsBBOjEr5kBwJlH5EfoLBDig0c54k-eXG6qvuVCEqV8AB_1KZau9HNTOg_i3pJJKe2sY0rgVeN-l1aYvGOX5PLd2ly2-Fc3aTwg"/>
+<span class="font-body-sm text-[13px] text-on-surface-variant">Saved Oct 12</span>
+</div>
+<div class="flex items-center gap-unit-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error-container hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="break-inside-avoid bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_24px_-4px_rgba(0,32,69,0.06)] hover:-translate-y-1 hover:shadow-[0_12px_32px_-4px_rgba(0,32,69,0.12)] transition-all duration-300 group flex flex-col cursor-pointer">
+<div class="relative w-full aspect-[4/3] overflow-hidden bg-surface-variant">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" data-alt="A minimalist living room interior with mid-century modern furniture, a large monstera plant, and a vintage rug. Natural light, calm and serene aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVYCK9i-Gya8y7SoDhB9OZ-s7QssxEOO-hIUjCztqZLCYq8X6jkhiTM_nPsCPEr-ca3bQ8uUaBSuZZJZahQ1ekSyUTJXJL99Mm8cJ1RSlyCF0sv2Iiub4IZdBtXrl86kWSsV9av5wTFCKbYLnjDNl1LfMFOOQZv96WsX0x9m-xFv_DB2xxQawxsH5UHfWy1ewp_1ui7I-E5WWoDqyOu5rnZUgZwHaKMZToBdPk6YEIpo-dXY5WBYpXdA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-40"></div>
+<div class="absolute top-unit-4 right-unit-4 flex gap-unit-2">
+<div class="w-8 h-8 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center shadow-sm text-surface-tint">
+<span class="material-symbols-outlined text-[16px]">article</span>
+</div>
+</div>
+<div class="absolute bottom-unit-4 left-unit-4 flex gap-unit-2 items-center">
+<span class="px-unit-3 py-unit-1 rounded-full bg-tertiary-container text-on-tertiary-container font-label-caps text-label-caps shadow-sm">DESIGN</span>
+<span class="px-unit-3 py-unit-1 rounded-full bg-background/80 backdrop-blur-sm text-on-surface font-label-caps text-label-caps shadow-sm border-[0.5px] border-outline-variant/20">INTERIORS</span>
+</div>
+</div>
+<div class="p-unit-5 flex flex-col gap-unit-3 flex-1 bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md text-on-surface leading-tight group-hover:text-primary transition-colors line-clamp-2">10 Rules for Small Space Living</h3>
+<div class="mt-auto pt-unit-4 flex items-center justify-between border-t border-outline-variant/20">
+<div class="flex items-center gap-unit-2">
+<div class="w-5 h-5 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-label-caps text-[10px]">AD</div>
+<span class="font-body-sm text-[13px] text-on-surface-variant">Saved Oct 10</span>
+</div>
+<div class="flex items-center gap-unit-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error-container hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="break-inside-avoid bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_24px_-4px_rgba(0,32,69,0.06)] hover:-translate-y-1 hover:shadow-[0_12px_32px_-4px_rgba(0,32,69,0.12)] transition-all duration-300 group flex flex-col cursor-pointer">
+<div class="p-unit-6 flex flex-col gap-unit-4 bg-primary-fixed-dim/30 border border-primary-fixed relative overflow-hidden">
+<div class="absolute top-0 right-0 p-unit-4 opacity-20">
+<span class="material-symbols-outlined text-[80px] text-primary">format_quote</span>
+</div>
+<div class="relative z-10 flex flex-col gap-unit-2">
+<div class="flex gap-unit-2 items-center mb-unit-2">
+<span class="px-unit-3 py-unit-1 rounded-full bg-primary text-on-primary font-label-caps text-label-caps shadow-sm">TECH</span>
+<span class="px-unit-3 py-unit-1 rounded-full bg-background/80 backdrop-blur-sm text-primary font-label-caps text-label-caps shadow-sm">AI</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-primary-container leading-tight group-hover:text-primary transition-colors line-clamp-3">"The future of interfaces is ambient, not active. We are moving from screens demanding attention to environments offering context."</h3>
+</div>
+</div>
+<div class="p-unit-5 flex flex-col gap-unit-3 flex-1 bg-surface-container-lowest border-t-0">
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">Fascinating essay on the evolution of spatial computing and contextual UI.</p>
+<div class="mt-auto pt-unit-4 flex items-center justify-between border-t border-outline-variant/20">
+<div class="flex items-center gap-unit-2">
+<div class="w-5 h-5 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[12px]">link</span>
+</div>
+<span class="font-body-sm text-[13px] text-on-surface-variant">Saved Oct 08</span>
+</div>
+<div class="flex items-center gap-unit-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error-container hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="break-inside-avoid bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_24px_-4px_rgba(0,32,69,0.06)] hover:-translate-y-1 hover:shadow-[0_12px_32px_-4px_rgba(0,32,69,0.12)] transition-all duration-300 group flex flex-col cursor-pointer">
+<div class="relative w-full aspect-[3/4] overflow-hidden bg-surface-variant">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" data-alt="A serene landscape photo of a misty morning in Kyoto, Japan. Bamboo forest path disappearing into the fog. Soft, cool color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjuYyCO18vP9jFvoc9Z-JjgU7NCIZz0LsJjspkBMVa-_yXDFHIF7aW-lGXzqrYGZrlSchQGhGjD5uWAsfZS5UglJeDkMWH9LdMUgjbEemOjAUE0pv9TCM6p1EmiEWDg-JkUqhwLSZU13_3FMmx80WPLH5-euK1zDxzgRTMckKbTVICXguM8iB4Wo9nkPJn_rvRlvjIe3uNHNG7TyllCQL4zuKiNGTGyaqJpmVHOdXvRSTUdMJ7snmlqg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-40"></div>
+<div class="absolute top-unit-4 right-unit-4 flex gap-unit-2">
+<div class="w-8 h-8 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center shadow-sm text-surface-tint">
+<span class="material-symbols-outlined text-[16px]">photo_camera</span>
+</div>
+</div>
+<div class="absolute bottom-unit-4 left-unit-4 flex gap-unit-2 items-center flex-wrap">
+<span class="px-unit-3 py-unit-1 rounded-full bg-primary-container text-on-primary-container font-label-caps text-label-caps shadow-sm">TRAVEL</span>
+<span class="px-unit-3 py-unit-1 rounded-full bg-background/80 backdrop-blur-sm text-on-surface font-label-caps text-label-caps shadow-sm border-[0.5px] border-outline-variant/20">JAPAN</span>
+</div>
+</div>
+<div class="p-unit-5 flex flex-col gap-unit-3 flex-1 bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md text-on-surface leading-tight group-hover:text-primary transition-colors line-clamp-2">Kyoto Off the Beaten Path: A 3-Day Itinerary</h3>
+<div class="mt-auto pt-unit-4 flex items-center justify-between border-t border-outline-variant/20">
+<div class="flex items-center gap-unit-2">
+<div class="w-5 h-5 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[12px]">explore</span>
+</div>
+<span class="font-body-sm text-[13px] text-on-surface-variant">Saved Sep 28</span>
+</div>
+<div class="flex items-center gap-unit-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error-container hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<div class="break-inside-avoid bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_24px_-4px_rgba(0,32,69,0.06)] hover:-translate-y-1 hover:shadow-[0_12px_32px_-4px_rgba(0,32,69,0.12)] transition-all duration-300 group flex flex-col cursor-pointer">
+<div class="relative w-full aspect-video overflow-hidden bg-surface-variant flex items-center justify-center">
+<div class="absolute inset-0 opacity-10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[120px] text-surface-tint">shopping_bag</span>
+</div>
+<div class="relative z-10 flex gap-unit-2 items-center">
+<span class="px-unit-3 py-unit-1 rounded-full bg-tertiary text-on-tertiary font-label-caps text-label-caps shadow-sm">SHOPPING</span>
+<span class="px-unit-3 py-unit-1 rounded-full bg-background/90 text-tertiary font-label-caps text-label-caps shadow-sm">GIFTS</span>
+</div>
+</div>
+<div class="p-unit-5 flex flex-col gap-unit-3 flex-1 bg-surface-container-lowest">
+<h3 class="font-headline-md text-headline-md text-on-surface leading-tight group-hover:text-primary transition-colors line-clamp-2">Handmade Ceramic Pour-Over Coffee Maker</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">Etsy find. Perfect gift idea for Dave's birthday next month.</p>
+<div class="mt-auto pt-unit-4 flex items-center justify-between border-t border-outline-variant/20">
+<div class="flex items-center gap-unit-2">
+<div class="w-5 h-5 rounded-full bg-[#F56400] flex items-center justify-center text-white font-label-caps text-[10px]">E</div>
+<span class="font-body-sm text-[13px] text-on-surface-variant">Saved Sep 15</span>
+</div>
+<div class="flex items-center gap-unit-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-error-container hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="hidden flex-col items-center justify-center py-unit-8 mt-unit-8 w-full max-w-md mx-auto text-center" id="empty-state">
+<div class="w-24 h-24 mb-unit-6 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant shadow-inner">
+<span class="material-symbols-outlined text-[40px]">search_off</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-unit-2">No links found</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-unit-6">We couldn't find anything matching your search. Try adjusting your filters or search terms.</p>
+<button class="px-unit-6 py-unit-3 rounded-full border-2 border-primary text-primary font-headline-md text-body-lg hover:bg-primary/5 transition-colors">
+                Clear Filters
+            </button>
+</div>
+</div>
+</div></main></div></body></html>
