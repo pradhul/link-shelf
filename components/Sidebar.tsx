@@ -65,6 +65,18 @@ export function Sidebar({
         <nav className="flex flex-col gap-1">
           {navItem("/", "All Items", "view_agenda", pathname === "/")}
           {navItem(
+            "/today",
+            "Today's eats",
+            "restaurant",
+            pathname === "/today",
+          )}
+          {navItem(
+            "/movies",
+            "Friday movie",
+            "movie",
+            pathname === "/movies",
+          )}
+          {navItem(
             "/favorites",
             "Favorites",
             "star",

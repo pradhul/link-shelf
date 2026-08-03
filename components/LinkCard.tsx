@@ -11,6 +11,9 @@ type Props = {
   onDelete: (save: SaveWithTags) => void;
   onRefreshPreview?: (save: SaveWithTags) => void;
   onViewNotes?: (save: SaveWithTags) => void;
+  /** Show watched toggle (movie-tagged cards + Friday picks). */
+  showWatchedToggle?: boolean;
+  onToggleWatched?: (save: SaveWithTags) => void;
 };
 
 function formatDate(d: Date | string) {
@@ -36,6 +39,8 @@ export function LinkCard({
   onDelete,
   onRefreshPreview,
   onViewNotes,
+  showWatchedToggle = false,
+  onToggleWatched,
 }: Props) {
   const [starBump, setStarBump] = useState(false);
   const notes = save.notes?.trim() ?? "";
@@ -47,6 +52,12 @@ export function LinkCard({
     setStarBump(true);
     window.setTimeout(() => setStarBump(false), 400);
     onToggleFavorite(save);
+  }
+
+  function handleWatched(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleWatched?.(save);
   }
 
   return (
@@ -72,23 +83,45 @@ export function LinkCard({
             </div>
           )}
         </a>
-        <button
-          type="button"
-          aria-label="Toggle favorite"
-          onClick={handleFavorite}
-          className={`absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-lowest/90 text-on-surface shadow-sm backdrop-blur press-scale ${starBump ? "star-twist" : ""}`}
-        >
-          <span
-            className={`material-symbols-outlined text-[18px] ${save.isFavorite ? "fill text-tertiary-fixed-dim" : ""}`}
+        <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5">
+          <button
+            type="button"
+            aria-label="Toggle favorite"
+            onClick={handleFavorite}
+            className={`flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-lowest/90 text-on-surface shadow-sm backdrop-blur press-scale ${starBump ? "star-twist" : ""}`}
           >
-            star
-          </span>
-        </button>
+            <span
+              className={`material-symbols-outlined text-[18px] ${save.isFavorite ? "fill text-tertiary-fixed-dim" : ""}`}
+            >
+              star
+            </span>
+          </button>
+          {showWatchedToggle && onToggleWatched && (
+            <button
+              type="button"
+              aria-label={save.isWatched ? "Mark unwatched" : "Mark watched"}
+              title={save.isWatched ? "Watched" : "Mark watched"}
+              onClick={handleWatched}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-container-lowest/90 text-on-surface shadow-sm backdrop-blur press-scale"
+            >
+              <span
+                className={`material-symbols-outlined text-[18px] ${save.isWatched ? "fill text-primary" : ""}`}
+              >
+                {save.isWatched ? "check_circle" : "visibility"}
+              </span>
+            </button>
+          )}
+        </div>
         {(save.source === "youtube" || save.source === "instagram") && (
           <span className="pointer-events-none absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-primary/80 text-on-primary">
             <span className="material-symbols-outlined text-[16px]">
               {save.source === "youtube" ? "play_arrow" : "photo_camera"}
             </span>
+          </span>
+        )}
+        {save.isWatched && showWatchedToggle && (
+          <span className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-on-surface/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-surface">
+            Watched
           </span>
         )}
       </div>

@@ -3,6 +3,7 @@ import {
   bigint,
   foreignKey,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -35,6 +36,7 @@ export const saves = pgTable("saves", {
   source: sourceEnum("source").notNull().default("other"),
   notes: text("notes"),
   isFavorite: boolean("is_favorite").notNull().default(false),
+  isWatched: boolean("is_watched").notNull().default(false),
   addedVia: addedViaEnum("added_via").notNull().default("web"),
   telegramUsername: text("telegram_username"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -91,5 +93,39 @@ export const pendingSaves = pgTable("pending_saves", {
     .defaultNow(),
 });
 
+/** One row per calendar day (Asia/Kolkata). Powers /today + Telegram digest. */
+export type DailyRecommendationPick = {
+  saveId: string;
+  reason: string;
+};
+
+export const dailyRecommendations = pgTable("daily_recommendations", {
+  date: text("date").primaryKey(), // YYYY-MM-DD in Asia/Kolkata
+  picks: jsonb("picks").$type<DailyRecommendationPick[]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** One row per Friday (Asia/Kolkata date). Powers /movies + Telegram digest. */
+export type WeeklyMovieRecommendationPick = {
+  saveId: string;
+  reason: string;
+};
+
+export const weeklyMovieRecommendations = pgTable(
+  "weekly_movie_recommendations",
+  {
+    date: text("date").primaryKey(), // Friday YYYY-MM-DD in Asia/Kolkata
+    picks: jsonb("picks").$type<WeeklyMovieRecommendationPick[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
+
 export type Save = typeof saves.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
+export type DailyRecommendation = typeof dailyRecommendations.$inferSelect;
+export type WeeklyMovieRecommendation =
+  typeof weeklyMovieRecommendations.$inferSelect;

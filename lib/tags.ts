@@ -5,6 +5,10 @@ import { saveTags, tags, type Tag } from "./schema";
 const DEFAULT_ICONS: Record<string, string> = {
   recipes: "restaurant",
   recipe: "restaurant",
+  movies: "movie",
+  movie: "movie",
+  films: "movie",
+  film: "movie",
   travel: "explore",
   funny: "mood",
   fitness: "fitness_center",

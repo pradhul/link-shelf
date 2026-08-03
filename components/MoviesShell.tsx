@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { saveHasMovieTag } from "@/lib/movie-tags";
-import type { SaveWithTags } from "@/lib/saves";
+import type { HydratedPick } from "@/lib/recommend";
 import type { Tag } from "@/lib/schema";
+import type { SaveWithTags } from "@/lib/saves";
 import { AddLinkModal } from "./AddLinkModal";
 import { EditLinkModal } from "./EditLinkModal";
 import { LinkCard } from "./LinkCard";
@@ -13,37 +13,48 @@ import { SearchBar } from "./SearchBar";
 import { Sidebar } from "./Sidebar";
 
 type Props = {
-  saves: SaveWithTags[];
+  date: string;
+  picks: HydratedPick[];
   topTags: Tag[];
-  title: string;
-  subtitle: string;
-  uncategorizedCount?: number;
-  subtags?: Tag[];
-  activeSubtagSlug?: string | null;
-  tagSlug?: string;
-  showBulkRepair?: boolean;
+  uncategorizedCount: number;
+  errorMessage?: string | null;
 };
 
-export function ShelfShell({
-  saves,
+export function MoviesShell({
+  date,
+  picks,
   topTags,
-  title,
-  subtitle,
-  uncategorizedCount = 0,
-  subtags,
-  activeSubtagSlug,
-  tagSlug,
-  showBulkRepair = false,
+  uncategorizedCount,
+  errorMessage,
 }: Props) {
   const router = useRouter();
   const [mobileNav, setMobileNav] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<SaveWithTags | null>(null);
   const [notesSave, setNotesSave] = useState<SaveWithTags | null>(null);
-  const [repairing, setRepairing] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   function refresh() {
     router.refresh();
+  }
+
+  async function generateFriday() {
+    setGenerating(true);
+    setLocalError(null);
+    try {
+      const res = await fetch("/api/recommendations/movies", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setLocalError(data.error ?? "Failed to generate picks");
+        return;
+      }
+      refresh();
+    } catch {
+      setLocalError("Failed to generate picks");
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function toggleFavorite(save: SaveWithTags) {
@@ -75,21 +86,7 @@ export function ShelfShell({
     refresh();
   }
 
-  async function bulkRepairYoutube() {
-    setRepairing(true);
-    try {
-      const res = await fetch("/api/saves/refresh-junk-youtube", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 25 }),
-      });
-      const data = await res.json();
-      alert(`Refreshed ${data.refreshed ?? 0} YouTube previews`);
-      refresh();
-    } finally {
-      setRepairing(false);
-    }
-  }
+  const displayError = localError ?? errorMessage;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -135,83 +132,69 @@ export function ShelfShell({
             <span className="material-symbols-outlined text-[18px]">add</span>
             Add Link
           </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container text-on-primary">
-            <span className="material-symbols-outlined text-[20px]">person</span>
-          </div>
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-8">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-on-surface md:text-3xl">
-                {title}
+                Friday movie
               </h1>
-              <p className="mt-1 text-sm text-on-surface-variant">{subtitle}</p>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                Picks for {date} · from your movie saves · mark watched when done
+              </p>
             </div>
-            {showBulkRepair && (
-              <button
-                type="button"
-                disabled={repairing}
-                onClick={bulkRepairYoutube}
-                className="rounded-lg bg-surface-container-high px-3 py-2 text-xs font-semibold text-on-surface disabled:opacity-60"
-              >
-                {repairing ? "Repairing…" : "Repair titles & notes"}
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={generating}
+              onClick={generateFriday}
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary shadow-sm disabled:opacity-60"
+            >
+              {generating ? "Generating…" : "Generate Friday picks"}
+            </button>
           </div>
 
-          {subtags && tagSlug && (
-            <div className="mb-6 flex flex-wrap gap-2">
-              <a
-                href={`/tags/${tagSlug}`}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                  !activeSubtagSlug
-                    ? "bg-secondary-container text-on-secondary-container"
-                    : "bg-surface-container-high text-on-surface-variant"
-                }`}
-              >
-                All
-              </a>
-              {subtags.map((s) => (
-                <a
-                  key={s.id}
-                  href={`/tags/${tagSlug}?sub=${s.slug}`}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                    activeSubtagSlug === s.slug
-                      ? "bg-secondary-container text-on-secondary-container"
-                      : "bg-surface-container-high text-on-surface-variant"
-                  }`}
-                >
-                  {s.name}
-                </a>
-              ))}
+          {displayError && (
+            <div className="mb-6 rounded-lg bg-error-container/40 px-4 py-3 text-sm text-on-surface">
+              {displayError}
             </div>
           )}
 
-          {saves.length === 0 ? (
+          {picks.length === 0 ? (
             <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-6 py-16 text-center">
               <span className="material-symbols-outlined mb-3 text-4xl text-outline">
-                shelves
+                movie
               </span>
-              <p className="font-medium text-on-surface">No links yet</p>
+              <p className="font-medium text-on-surface">No picks yet</p>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Share a link to your Telegram bot or use Add Link.
+                Tag some saves as movies, then generate Friday picks (or wait
+                for Friday 7PM IST).
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {saves.map((save) => (
-                <LinkCard
-                  key={save.id}
-                  save={save}
-                  onEdit={setEditing}
-                  onToggleFavorite={toggleFavorite}
-                  onDelete={remove}
-                  onRefreshPreview={refreshPreview}
-                  onViewNotes={setNotesSave}
-                  showWatchedToggle={saveHasMovieTag(save)}
-                  onToggleWatched={toggleWatched}
-                />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {picks.map((pick) => (
+                <div key={pick.saveId} className="flex flex-col gap-2">
+                  {pick.save ? (
+                    <LinkCard
+                      save={pick.save}
+                      onEdit={setEditing}
+                      onToggleFavorite={toggleFavorite}
+                      onDelete={remove}
+                      onRefreshPreview={refreshPreview}
+                      onViewNotes={setNotesSave}
+                      showWatchedToggle
+                      onToggleWatched={toggleWatched}
+                    />
+                  ) : (
+                    <div className="rounded-xl bg-surface-container-lowest p-4 text-sm text-on-surface-variant ring-1 ring-outline-variant/30">
+                      Save missing ({pick.saveId.slice(0, 8)}…)
+                    </div>
+                  )}
+                  <p className="px-1 text-sm leading-relaxed text-on-surface-variant">
+                    {pick.reason}
+                  </p>
+                </div>
               ))}
             </div>
           )}

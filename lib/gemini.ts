@@ -475,3 +475,50 @@ ${JSON.stringify(payload, null, 2)}`;
     ? lastErr
     : new Error(`Gemini translation unavailable (tried: ${candidates.join(", ")})`);
 }
+
+/**
+ * Shared JSON generation with model fallback + rate-limit retry.
+ * Used by recommend.ts so food picks reuse the same Gemini chain as categorize.
+ */
+export async function generateJsonPrompt(opts: {
+  prompt: string;
+  temperature?: number;
+}): Promise<unknown> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set");
+  }
+
+  const candidates = getModelCandidates();
+  let lastErr: unknown;
+
+  for (const modelName of candidates) {
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: opts.temperature ?? 0.4,
+          responseMimeType: "application/json",
+        },
+      });
+
+      const text = await generateWithRetry(async () => {
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
+        });
+        return result.response.text();
+      }, 3);
+
+      return extractJson(text);
+    } catch (err) {
+      lastErr = err;
+      if (isRateLimitError(err)) throw err;
+      if (!isModelUnavailableError(err)) throw err;
+    }
+  }
+
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error(`Gemini model unavailable (tried: ${candidates.join(", ")})`);
+}

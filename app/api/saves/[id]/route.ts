@@ -37,6 +37,8 @@ export async function PATCH(request: Request, { params }: Params) {
       notes: body.notes !== undefined ? body.notes : undefined,
       isFavorite:
         body.isFavorite !== undefined ? Boolean(body.isFavorite) : undefined,
+      isWatched:
+        body.isWatched !== undefined ? Boolean(body.isWatched) : undefined,
       classifications,
       topTagId:
         classifications === undefined && body.topTagId !== undefined

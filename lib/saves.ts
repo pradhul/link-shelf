@@ -172,6 +172,13 @@ export async function getSaveById(id: string) {
   return withTags;
 }
 
+export async function getSavesByIds(ids: string[]): Promise<SaveWithTags[]> {
+  if (ids.length === 0) return [];
+  const db = getDb();
+  const rows = await db.select().from(saves).where(inArray(saves.id, ids));
+  return attachTags(rows);
+}
+
 export async function setSaveClassifications(
   saveId: string,
   pairs: ClassificationInput[],
@@ -411,6 +418,7 @@ export async function updateSave(
     title?: string;
     notes?: string | null;
     isFavorite?: boolean;
+    isWatched?: boolean;
     topTagId?: string | null;
     subTagId?: string | null;
     classifications?: ClassificationInput[];
@@ -426,6 +434,7 @@ export async function updateSave(
       data.notes === null ? null : sanitizeText(data.notes);
   }
   if (data.isFavorite !== undefined) patch.isFavorite = data.isFavorite;
+  if (data.isWatched !== undefined) patch.isWatched = data.isWatched;
 
   const [updated] = await db
     .update(saves)
