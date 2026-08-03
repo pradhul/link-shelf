@@ -1,12 +1,25 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import {
+  categorizeLinks,
+  getConfidenceThreshold,
+  hasGeminiKey,
+} from "@/lib/gemini";
 import { getDb } from "@/lib/db";
-import { extractUrl } from "@/lib/og";
+import {
+  detectSource,
+  extractUrl,
+  extractUrls,
+  fetchOgData,
+  fetchThumbnailBytes,
+  getBatchMax,
+} from "@/lib/og";
 import { createOrUpdateSave } from "@/lib/saves";
 import { pendingSaves, tags } from "@/lib/schema";
 import {
   findOrCreateTag,
   getSubtags,
+  getTagTree,
   getTopLevelTags,
   parseTagPath,
 } from "@/lib/tags";
@@ -22,6 +35,8 @@ import {
   type TelegramUpdate,
   verifyWebhookSecret,
 } from "@/lib/telegram";
+
+export const maxDuration = 60;
 
 async function clearPending(userId: number) {
   const db = getDb();
@@ -87,6 +102,126 @@ async function promptSubtags(
   );
 }
 
+async function handleBatchUrls(
+  chatId: number,
+  userId: number,
+  urls: string[],
+  username: string | undefined,
+) {
+  const batchMax = getBatchMax();
+  const selected = urls.slice(0, batchMax);
+  const skipped = urls.length - selected.length;
+
+  await clearPending(userId);
+  await sendMessage(
+    chatId,
+    `Analyzing ${selected.length} link${selected.length === 1 ? "" : "s"}…` +
+      (skipped > 0 ? ` (capped at ${batchMax}; ${skipped} ignored)` : ""),
+  );
+
+  const enriched = await Promise.all(
+    selected.map(async (url) => {
+      const og = await fetchOgData(url, { timeoutMs: 3000 });
+      const image = og.thumbnailUrl
+        ? await fetchThumbnailBytes(og.thumbnailUrl, { timeoutMs: 3000 })
+        : null;
+      return {
+        url,
+        source: detectSource(url),
+        title: og.title,
+        description: og.description,
+        og,
+        image,
+      };
+    }),
+  );
+
+  const threshold = getConfidenceThreshold();
+  let results: Awaited<ReturnType<typeof categorizeLinks>> | null = null;
+
+  if (!hasGeminiKey()) {
+    await sendMessage(
+      chatId,
+      "Auto-tag needs GEMINI_API_KEY. Saving all as uncategorized — edit tags in the app.",
+    );
+  } else {
+    try {
+      const tagTree = await getTagTree();
+      results = await categorizeLinks(
+        enriched.map(({ url, source, title, description, image }) => ({
+          url,
+          source,
+          title,
+          description,
+          image,
+        })),
+        tagTree,
+      );
+    } catch (err) {
+      console.error("gemini categorize failed", err);
+      await sendMessage(
+        chatId,
+        "Auto-tag failed. Saving all as uncategorized — edit tags in the app.",
+      );
+    }
+  }
+
+  const lines: string[] = [];
+  let tagged = 0;
+  let uncategorized = 0;
+
+  for (const item of enriched) {
+    const cat = results?.find(
+      (r) => r.url === item.url || cleanMatch(r.url, item.url),
+    );
+    const confident =
+      cat &&
+      cat.confidence >= threshold &&
+      Boolean(cat.topTag?.trim());
+
+    const topTagName = confident ? cat!.topTag : null;
+    const subTagName = confident ? cat!.subTag : null;
+
+    const { save, created } = await createOrUpdateSave({
+      url: item.url,
+      topTagName,
+      subTagName,
+      addedVia: "telegram",
+      telegramUsername: username,
+      title: item.title,
+      og: item.og,
+      source: item.source === "manual" ? "other" : item.source,
+    });
+
+    const label = save.title || item.url;
+    if (confident && topTagName) {
+      tagged += 1;
+      const path = [topTagName, subTagName].filter(Boolean).join("/");
+      lines.push(
+        `• ${created ? "Saved" : "Updated"}: ${label}\n  → ${path} (${Math.round(cat!.confidence * 100)}%)`,
+      );
+    } else {
+      uncategorized += 1;
+      lines.push(
+        `• ${created ? "Saved" : "Updated"}: ${label}\n  → uncategorized (review in app)`,
+      );
+    }
+  }
+
+  const header =
+    `Done. Tagged: ${tagged} · Uncategorized: ${uncategorized}` +
+    (skipped > 0 ? ` · Skipped: ${skipped}` : "");
+  await sendMessage(chatId, `${header}\n\n${lines.join("\n")}`);
+}
+
+function cleanMatch(a: string, b: string) {
+  try {
+    return new URL(a).href === new URL(b).href;
+  } catch {
+    return a === b;
+  }
+}
+
 async function handleCallback(update: TelegramUpdate) {
   const cq = update.callback_query;
   if (!cq?.from || !cq.message) {
@@ -142,7 +277,6 @@ async function handleCallback(update: TelegramUpdate) {
         });
         return;
       }
-      // awaiting_subtag — save with top tag only
       const top = pending.tagId
         ? await db.query.tags.findFirst({
             where: eq(tags.id, pending.tagId),
@@ -171,11 +305,7 @@ async function handleCallback(update: TelegramUpdate) {
         .update(pendingSaves)
         .set({ step: "awaiting_subtag", tagId: top.id })
         .where(eq(pendingSaves.telegramUserId, userId));
-      await editMessageText(
-        chatId,
-        messageId,
-        `Tag: ${top.name}`,
-      );
+      await editMessageText(chatId, messageId, `Tag: ${top.name}`);
       await promptSubtags(chatId, top);
       return;
     }
@@ -204,10 +334,16 @@ async function handleCallback(update: TelegramUpdate) {
       return;
     }
 
-    await sendMessage(chatId, "That button doesn’t apply right now. Send a link or type a tag.");
+    await sendMessage(
+      chatId,
+      "That button doesn’t apply right now. Send a link or type a tag.",
+    );
   } catch (err) {
     console.error("telegram callback error", err);
-    await sendMessage(chatId, "Something went wrong. Try sending the link again.");
+    await sendMessage(
+      chatId,
+      "Something went wrong. Try sending the link again.",
+    );
   }
 }
 
@@ -232,9 +368,16 @@ async function handleMessage(update: TelegramUpdate) {
     where: eq(pendingSaves.telegramUserId, userId),
   });
 
-  const urlInMessage = extractUrl(text);
+  const urls = extractUrls(text);
 
   try {
+    if (urls.length > 1) {
+      await handleBatchUrls(chatId, userId, urls, username);
+      return;
+    }
+
+    const urlInMessage = urls[0] ?? extractUrl(text);
+
     if (urlInMessage) {
       await db
         .insert(pendingSaves)
@@ -261,7 +404,7 @@ async function handleMessage(update: TelegramUpdate) {
     if (!pending) {
       await sendMessage(
         chatId,
-        "Send me an Instagram or YouTube link to save it to The Link Shelf.",
+        "Send me an Instagram or YouTube link to save it to The Link Shelf.\nTip: send 2+ links at once for auto-tagging.",
       );
       return;
     }
@@ -323,7 +466,10 @@ async function handleMessage(update: TelegramUpdate) {
     }
   } catch (err) {
     console.error("telegram webhook error", err);
-    await sendMessage(chatId, "Something went wrong saving that link. Try again.");
+    await sendMessage(
+      chatId,
+      "Something went wrong saving that link. Try again.",
+    );
   }
 }
 

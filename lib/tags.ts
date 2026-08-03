@@ -110,3 +110,24 @@ export async function getTagBySlug(slug: string, parentId: string | null = null)
     where: and(eq(tags.slug, slug), isNull(tags.parentId)),
   });
 }
+
+export type TagTreeNode = {
+  name: string;
+  slug: string;
+  subtags: { name: string; slug: string }[];
+};
+
+/** Serialize top-level tags with their subtags for LLM prompts. */
+export async function getTagTree(): Promise<TagTreeNode[]> {
+  const top = await getTopLevelTags();
+  const nodes: TagTreeNode[] = [];
+  for (const t of top) {
+    const subs = await getSubtags(t.id);
+    nodes.push({
+      name: t.name,
+      slug: t.slug,
+      subtags: subs.map((s) => ({ name: s.name, slug: s.slug })),
+    });
+  }
+  return nodes;
+}

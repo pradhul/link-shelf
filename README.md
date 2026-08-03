@@ -6,7 +6,8 @@ Household PWA for saving Instagram, YouTube, and other links — via Telegram bo
 
 - Shared household password login
 - Tag → optional subtag organization
-- Telegram bot ingest (link → tag → subtag)
+- Telegram bot ingest (link → tag buttons / type)
+- **Multi-link auto-tag** via Gemini (preview image + metadata; low confidence → uncategorized)
 - Manual **Add Link** in the app
 - Favorites, search, edit notes/classification
 - Installable PWA (online-only)
@@ -40,8 +41,12 @@ npm run db:push
 | `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) |
 | `TELEGRAM_WEBHOOK_SECRET` | Random secret for webhook verification |
 | `TELEGRAM_ALLOWED_USER_IDS` | Comma-separated Telegram user IDs |
+| `GEMINI_API_KEY` | Google AI Studio key for multi-link auto-tag |
+| `GEMINI_MODEL` | Optional (default `gemini-2.0-flash`) |
+| `GEMINI_CONFIDENCE_THRESHOLD` | Optional (default `0.7`) |
+| `GEMINI_BATCH_MAX` | Optional max URLs per message (default `5`) |
 
-Find your Telegram user ID via [@userinfobot](https://t.me/userinfobot).
+Find your Telegram user ID via [@userinfobot](https://t.me/userinfobot). Get a Gemini key at [Google AI Studio](https://aistudio.google.com/apikey).
 
 ### 3. Telegram bot webhook
 
@@ -68,10 +73,9 @@ Open [http://localhost:3000](http://localhost:3000), log in with `HOUSEHOLD_PASS
 
 ### Bot flow
 
-1. Send an Instagram/YouTube (or any) URL to the bot.
-2. Reply with a tag (`recipe`) or path (`recipe/pasta`), or `skip`.
-3. If only a top tag was sent, the bot asks for an optional subtag.
-4. The link appears in the PWA with OG title/thumbnail when available.
+1. Send **one** URL → pick a tag button (or type `recipe/pasta` / `skip`).
+2. Send **two or more** URLs in one message → Gemini auto-categorizes (uses title + preview image when available). High confidence gets tags; low confidence saves **uncategorized** for editing in the app.
+3. Links appear in the PWA with OG title/thumbnail when available.
 
 ## Design reference
 

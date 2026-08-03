@@ -152,9 +152,15 @@ export async function createOrUpdateSave(input: {
   title?: string | null;
   notes?: string | null;
   source?: Save["source"];
+  /** Skip network OG fetch when already loaded for batch/Gemini. */
+  og?: {
+    title?: string | null;
+    description?: string | null;
+    thumbnailUrl?: string | null;
+  } | null;
 }) {
   const db = getDb();
-  const og = await fetchOgData(input.url);
+  const og = input.og ?? (await fetchOgData(input.url));
   const source = input.source ?? detectSource(input.url);
 
   let topTag: Tag | null = null;

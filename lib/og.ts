@@ -4,6 +4,11 @@ export type OgData = {
   thumbnailUrl: string | null;
 };
 
+export type ThumbnailBytes = {
+  data: Buffer;
+  mimeType: string;
+};
+
 function detectSource(
   url: string,
 ): "instagram" | "youtube" | "other" | "manual" {
@@ -54,15 +59,21 @@ function decodeHtml(s: string) {
     .replace(/&#39;/g, "'");
 }
 
-export async function fetchOgData(url: string): Promise<OgData> {
+const UA =
+  "Mozilla/5.0 (compatible; LinkShelfBot/1.0; +https://linkshelf.app)";
+
+export async function fetchOgData(
+  url: string,
+  opts?: { timeoutMs?: number },
+): Promise<OgData> {
+  const timeoutMs = opts?.timeoutMs ?? 8000;
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; LinkShelfBot/1.0; +https://linkshelf.app)",
+        "User-Agent": UA,
         Accept: "text/html",
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(timeoutMs),
       redirect: "follow",
     });
     if (!res.ok) {
@@ -79,8 +90,7 @@ export async function fetchOgData(url: string): Promise<OgData> {
       metaContent(html, "description") ||
       metaContent(html, "twitter:description");
     let thumbnailUrl =
-      metaContent(html, "og:image") ||
-      metaContent(html, "twitter:image");
+      metaContent(html, "og:image") || metaContent(html, "twitter:image");
 
     if (thumbnailUrl) {
       try {
@@ -100,8 +110,57 @@ export async function fetchOgData(url: string): Promise<OgData> {
   }
 }
 
+const MAX_THUMB_BYTES = 1_000_000;
+
+export async function fetchThumbnailBytes(
+  imageUrl: string,
+  opts?: { timeoutMs?: number },
+): Promise<ThumbnailBytes | null> {
+  const timeoutMs = opts?.timeoutMs ?? 3000;
+  try {
+    const res = await fetch(imageUrl, {
+      headers: { "User-Agent": UA, Accept: "image/*" },
+      signal: AbortSignal.timeout(timeoutMs),
+      redirect: "follow",
+    });
+    if (!res.ok) return null;
+    const mimeType = (res.headers.get("content-type") || "image/jpeg")
+      .split(";")[0]
+      .trim();
+    if (!mimeType.startsWith("image/")) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length === 0 || buf.length > MAX_THUMB_BYTES) return null;
+    return { data: buf, mimeType };
+  } catch {
+    return null;
+  }
+}
+
+function cleanUrl(raw: string) {
+  return raw.replace(/[),.;!?]+$/, "");
+}
+
 export function extractUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s<>"']+/i);
   if (!match) return null;
-  return match[0].replace(/[),.;!?]+$/, "");
+  return cleanUrl(match[0]);
+}
+
+export function extractUrls(text: string): string[] {
+  const matches = text.match(/https?:\/\/[^\s<>"']+/gi) ?? [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const m of matches) {
+    const url = cleanUrl(m);
+    if (!seen.has(url)) {
+      seen.add(url);
+      urls.push(url);
+    }
+  }
+  return urls;
+}
+
+export function getBatchMax() {
+  const n = Number(process.env.GEMINI_BATCH_MAX ?? "5");
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 10) : 5;
 }
