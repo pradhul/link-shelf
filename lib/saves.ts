@@ -1,5 +1,6 @@
 import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { getDb } from "./db";
+import { hasGeminiKey, translateToEnglish } from "./gemini";
 import {
   detectSource,
   fetchLinkPreview,
@@ -12,6 +13,7 @@ import {
 } from "./og";
 import { saveTags, saves, tags, type Save, type Tag } from "./schema";
 import { findOrCreateTag } from "./tags";
+import { needsTranslation } from "./translate";
 
 export type Classification = {
   topTag: Tag;
@@ -229,6 +231,41 @@ async function resolveNamePairs(
   return pairs;
 }
 
+/** Best-effort English translation; keeps originals if Gemini is missing/fails. */
+async function maybeTranslateMetadata(fields: {
+  title: string | null;
+  notes: string | null;
+  description?: string | null;
+}): Promise<{ title: string | null; notes: string | null; description?: string | null }> {
+  if (!hasGeminiKey()) return fields;
+
+  const payload: {
+    title?: string;
+    notes?: string;
+    description?: string;
+  } = {};
+  if (needsTranslation(fields.title)) payload.title = fields.title!;
+  if (needsTranslation(fields.notes)) payload.notes = fields.notes!;
+  if (fields.description && needsTranslation(fields.description)) {
+    payload.description = fields.description;
+  }
+  if (Object.keys(payload).length === 0) return fields;
+
+  try {
+    const translated = await translateToEnglish(payload);
+    return {
+      title: sanitizeText(translated.title ?? fields.title) ?? fields.title,
+      notes: sanitizeText(translated.notes ?? fields.notes) ?? fields.notes,
+      description:
+        sanitizeText(translated.description ?? fields.description) ??
+        fields.description,
+    };
+  } catch (err) {
+    console.error("translate metadata failed", err);
+    return fields;
+  }
+}
+
 export async function createOrUpdateSave(input: {
   url: string;
   /** Single pair (Telegram). Pass null to clear tags when setTags is intended. */
@@ -288,14 +325,30 @@ export async function createOrUpdateSave(input: {
     const existingTitle = isJunkYoutubeTitle(existing.title)
       ? null
       : sanitizeText(existing.title);
+    let nextTitle = pickUsableTitle(inputTitle, ogTitle, existingTitle);
+    let nextNotes = inputNotes ?? sanitizeText(existing.notes) ?? existing.notes;
+    let nextDescription =
+      ogDescription ?? sanitizeText(existing.description) ?? existing.description;
+
+    // Translate when title/notes still look foreign (e.g. re-save with fresh OG)
+    if (needsTranslation(nextTitle) || needsTranslation(nextNotes)) {
+      const translated = await maybeTranslateMetadata({
+        title: nextTitle,
+        notes: nextNotes,
+        description: nextDescription,
+      });
+      nextTitle = translated.title;
+      nextNotes = translated.notes;
+      nextDescription = translated.description ?? nextDescription;
+    }
+
     const [updated] = await db
       .update(saves)
       .set({
-        title: pickUsableTitle(inputTitle, ogTitle, existingTitle),
-        description:
-          ogDescription ?? sanitizeText(existing.description) ?? existing.description,
+        title: nextTitle,
+        description: nextDescription,
         thumbnailUrl: og.thumbnailUrl ?? existing.thumbnailUrl,
-        notes: inputNotes ?? sanitizeText(existing.notes) ?? existing.notes,
+        notes: nextNotes,
         updatedAt: new Date(),
       })
       .where(eq(saves.id, existing.id))
@@ -307,15 +360,39 @@ export async function createOrUpdateSave(input: {
     return { save: result, created: false };
   }
 
+  let nextTitle = pickUsableTitle(inputTitle, ogTitle);
+  let nextNotes = inputNotes;
+  let nextDescription = ogDescription;
+
+  // Seed notes from useful OG caption on create when empty
+  if (!nextNotes && isUsefulNotesCandidate(nextDescription)) {
+    nextNotes = nextDescription;
+  }
+
+  if (
+    needsTranslation(nextTitle) ||
+    needsTranslation(nextNotes) ||
+    needsTranslation(nextDescription)
+  ) {
+    const translated = await maybeTranslateMetadata({
+      title: nextTitle,
+      notes: nextNotes,
+      description: nextDescription,
+    });
+    nextTitle = translated.title;
+    nextNotes = translated.notes;
+    nextDescription = translated.description ?? nextDescription;
+  }
+
   const [created] = await db
     .insert(saves)
     .values({
       url: input.url,
-      title: pickUsableTitle(inputTitle, ogTitle),
-      description: ogDescription,
+      title: nextTitle,
+      description: nextDescription,
       thumbnailUrl: og.thumbnailUrl,
       source,
-      notes: inputNotes,
+      notes: nextNotes,
       addedVia: input.addedVia,
       telegramUsername: input.telegramUsername ?? null,
     })
@@ -385,19 +462,34 @@ export async function refreshSavePreview(id: string) {
     ? null
     : sanitizeText(existing.title);
 
-  const nextNotes =
-    !existing.notes?.trim() && isUsefulNotesCandidate(ogDescription)
+  const notesWereEmpty = !existing.notes?.trim();
+  let nextNotes =
+    notesWereEmpty && isUsefulNotesCandidate(ogDescription)
       ? ogDescription
       : sanitizeText(existing.notes) ?? existing.notes;
+  let nextTitle = pickUsableTitle(ogTitle, existingTitle);
+  let nextDescription =
+    ogDescription ??
+    sanitizeText(existing.description) ??
+    existing.description;
+
+  // Translate foreign title / auto-filled or still-foreign notes
+  if (needsTranslation(nextTitle) || needsTranslation(nextNotes)) {
+    const translated = await maybeTranslateMetadata({
+      title: nextTitle,
+      notes: nextNotes,
+      description: nextDescription,
+    });
+    nextTitle = translated.title;
+    nextNotes = translated.notes;
+    nextDescription = translated.description ?? nextDescription;
+  }
 
   const [updated] = await db
     .update(saves)
     .set({
-      title: pickUsableTitle(ogTitle, existingTitle),
-      description:
-        ogDescription ??
-        sanitizeText(existing.description) ??
-        existing.description,
+      title: nextTitle,
+      description: nextDescription,
       thumbnailUrl: og.thumbnailUrl ?? existing.thumbnailUrl,
       notes: nextNotes,
       updatedAt: new Date(),
@@ -423,6 +515,8 @@ export async function refreshJunkYoutubePreviews(limit = 25) {
       (r) =>
         hasEncodedEntities(r.title) ||
         hasEncodedEntities(r.description) ||
+        needsTranslation(r.title) ||
+        needsTranslation(r.notes) ||
         (r.source === "youtube" &&
           (isJunkYoutubeTitle(r.title) ||
             isGenericYoutubeDescription(r.description))),
@@ -433,7 +527,8 @@ export async function refreshJunkYoutubePreviews(limit = 25) {
   for (const row of junk) {
     const updated = await refreshSavePreview(row.id);
     if (updated) results.push(updated);
-    await new Promise((r) => setTimeout(r, 200));
+    // Pace Gemini translate calls on free tier
+    await new Promise((r) => setTimeout(r, 500));
   }
   return { refreshed: results.length, ids: results.map((r) => r.id) };
 }

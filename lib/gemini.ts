@@ -42,10 +42,15 @@ function extractJson(text: string): unknown {
   const trimmed = text.trim();
   const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const raw = fence ? fence[1].trim() : trimmed;
-  const start = raw.indexOf("[");
-  const end = raw.lastIndexOf("]");
-  if (start >= 0 && end > start) {
-    return JSON.parse(raw.slice(start, end + 1));
+  const startArr = raw.indexOf("[");
+  const endArr = raw.lastIndexOf("]");
+  if (startArr >= 0 && endArr > startArr) {
+    return JSON.parse(raw.slice(startArr, endArr + 1));
+  }
+  const startObj = raw.indexOf("{");
+  const endObj = raw.lastIndexOf("}");
+  if (startObj >= 0 && endObj > startObj) {
+    return JSON.parse(raw.slice(startObj, endObj + 1));
   }
   return JSON.parse(raw);
 }
@@ -378,4 +383,95 @@ export async function categorizeLinks(
   throw lastErr instanceof Error
     ? lastErr
     : new Error(`Gemini model unavailable (tried: ${candidates.join(", ")})`);
+}
+
+export type TranslateFields = {
+  title?: string | null;
+  notes?: string | null;
+  description?: string | null;
+};
+
+/**
+ * Translate non-English metadata fields to English.
+ * Only includes keys present in `fields`; returns sanitized English strings.
+ * Throws on hard failures; callers should catch and keep originals.
+ */
+export async function translateToEnglish(
+  fields: TranslateFields,
+): Promise<TranslateFields> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set");
+  }
+
+  const payload: Record<string, string> = {};
+  if (fields.title?.trim()) payload.title = fields.title.trim();
+  if (fields.notes?.trim()) payload.notes = fields.notes.trim();
+  if (fields.description?.trim()) payload.description = fields.description.trim();
+  if (Object.keys(payload).length === 0) return fields;
+
+  const prompt = `You translate bookmark metadata into clear English for a household link shelf.
+
+Rules:
+- Return a JSON object only with the SAME keys as the input.
+- Translate each value into natural English.
+- Keep proper nouns (names, brands, places) recognizable.
+- Do not invent recipe steps, plot points, or facts not present in the source text.
+- If a value is already English, return it unchanged (light cleanup OK).
+- Do not add commentary.
+
+Input:
+${JSON.stringify(payload, null, 2)}`;
+
+  const candidates = getModelCandidates();
+  let lastErr: unknown;
+
+  for (const modelName of candidates) {
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: "application/json",
+        },
+      });
+
+      const text = await generateWithRetry(async () => {
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+        });
+        return result.response.text();
+      }, 2);
+
+      const parsed = extractJson(text);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Gemini translation returned non-object JSON");
+      }
+      const row = parsed as Record<string, unknown>;
+      const out: TranslateFields = { ...fields };
+      if (payload.title && typeof row.title === "string" && row.title.trim()) {
+        out.title = row.title.trim();
+      }
+      if (payload.notes && typeof row.notes === "string" && row.notes.trim()) {
+        out.notes = row.notes.trim();
+      }
+      if (
+        payload.description &&
+        typeof row.description === "string" &&
+        row.description.trim()
+      ) {
+        out.description = row.description.trim();
+      }
+      return out;
+    } catch (err) {
+      lastErr = err;
+      if (isRateLimitError(err)) throw err;
+      if (!isModelUnavailableError(err)) throw err;
+    }
+  }
+
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error(`Gemini translation unavailable (tried: ${candidates.join(", ")})`);
 }
