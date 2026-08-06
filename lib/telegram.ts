@@ -72,6 +72,13 @@ export function skipTypeKeyboard(): InlineKeyboard {
   };
 }
 
+/** Offer manual retag after AI auto-categorize. callback_data: retag:<saveId> */
+export function changeTagKeyboard(saveId: string): InlineKeyboard {
+  return {
+    inline_keyboard: [[{ text: "Change tag", callback_data: `retag:${saveId}` }]],
+  };
+}
+
 type TelegramApiResponse = {
   ok: boolean;
   description?: string;

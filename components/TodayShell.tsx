@@ -8,9 +8,10 @@ import type { SaveWithTags } from "@/lib/saves";
 import { AddLinkModal } from "./AddLinkModal";
 import { EditLinkModal } from "./EditLinkModal";
 import { LinkCard } from "./LinkCard";
+import { MobileNav } from "./MobileNav";
 import { NotesSheet } from "./NotesSheet";
+import { PageTransition } from "./PageTransition";
 import { SearchBar } from "./SearchBar";
-import { Sidebar } from "./Sidebar";
 
 type Props = {
   date: string;
@@ -81,28 +82,16 @@ export function TodayShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <div
-        className={`${mobileNav ? "fixed inset-0 z-40 flex" : "hidden"} md:static md:flex`}
-      >
-        {mobileNav && (
-          <button
-            type="button"
-            aria-label="Close menu"
-            className="absolute inset-0 bg-on-surface/30 md:hidden"
-            onClick={() => setMobileNav(false)}
-          />
-        )}
-        <div className="relative z-50 h-full">
-          <Sidebar
-            topTags={topTags}
-            uncategorizedCount={uncategorizedCount}
-            onAddLink={() => {
-              setMobileNav(false);
-              setAddOpen(true);
-            }}
-          />
-        </div>
-      </div>
+      <MobileNav
+        open={mobileNav}
+        onClose={() => setMobileNav(false)}
+        topTags={topTags}
+        uncategorizedCount={uncategorizedCount}
+        onAddLink={() => {
+          setMobileNav(false);
+          setAddOpen(true);
+        }}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-outline-variant/30 bg-background/90 px-4 py-3 backdrop-blur md:px-8">
@@ -111,6 +100,7 @@ export function TodayShell({
             className="rounded-lg p-2 hover:bg-surface-container-high md:hidden"
             onClick={() => setMobileNav(true)}
             aria-label="Open menu"
+            aria-expanded={mobileNav}
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
@@ -126,67 +116,69 @@ export function TodayShell({
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-8">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-on-surface md:text-3xl">
-                Today&apos;s eats
-              </h1>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                Picks for {date} · grounded in your cooking saves
-              </p>
+          <PageTransition>
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-bold text-on-surface md:text-3xl">
+                  Today&apos;s eats
+                </h1>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  Picks for {date} · grounded in your cooking saves
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={generating}
+                onClick={generateToday}
+                className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary shadow-sm disabled:opacity-60"
+              >
+                {generating ? "Generating…" : "Generate today’s picks"}
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={generating}
-              onClick={generateToday}
-              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary shadow-sm disabled:opacity-60"
-            >
-              {generating ? "Generating…" : "Generate today’s picks"}
-            </button>
-          </div>
 
-          {displayError && (
-            <div className="mb-6 rounded-lg bg-error-container/40 px-4 py-3 text-sm text-on-surface">
-              {displayError}
-            </div>
-          )}
+            {displayError && (
+              <div className="mb-6 rounded-lg bg-error-container/40 px-4 py-3 text-sm text-on-surface">
+                {displayError}
+              </div>
+            )}
 
-          {picks.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-6 py-16 text-center">
-              <span className="material-symbols-outlined mb-3 text-4xl text-outline">
-                restaurant
-              </span>
-              <p className="font-medium text-on-surface">No picks yet</p>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                Tag some saves as recipes/cooking, then generate today&apos;s
-                picks.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {picks.map((pick) => (
-                <div key={pick.saveId} className="flex flex-col gap-2">
-                  {pick.save ? (
-                    <LinkCard
-                      save={pick.save}
-                      onEdit={setEditing}
-                      onToggleFavorite={toggleFavorite}
-                      onDelete={remove}
-                      onRefreshPreview={refreshPreview}
-                      onViewNotes={setNotesSave}
-                    />
-                  ) : (
-                    <div className="rounded-xl bg-surface-container-lowest p-4 text-sm text-on-surface-variant ring-1 ring-outline-variant/30">
-                      Save missing ({pick.saveId.slice(0, 8)}…)
-                    </div>
-                  )}
-                  <p className="px-1 text-sm leading-relaxed text-on-surface-variant">
-                    {pick.reason}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+            {picks.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-6 py-16 text-center">
+                <span className="material-symbols-outlined mb-3 text-4xl text-outline">
+                  restaurant
+                </span>
+                <p className="font-medium text-on-surface">No picks yet</p>
+                <p className="mt-1 text-sm text-on-surface-variant">
+                  Tag some saves as recipes/cooking, then generate today&apos;s
+                  picks.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {picks.map((pick) => (
+                  <div key={pick.saveId} className="flex flex-col gap-2">
+                    {pick.save ? (
+                      <LinkCard
+                        save={pick.save}
+                        onEdit={setEditing}
+                        onToggleFavorite={toggleFavorite}
+                        onDelete={remove}
+                        onRefreshPreview={refreshPreview}
+                        onViewNotes={setNotesSave}
+                      />
+                    ) : (
+                      <div className="rounded-xl bg-surface-container-lowest p-4 text-sm text-on-surface-variant ring-1 ring-outline-variant/30">
+                        Save missing ({pick.saveId.slice(0, 8)}…)
+                      </div>
+                    )}
+                    <p className="px-1 text-sm leading-relaxed text-on-surface-variant">
+                      {pick.reason}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </PageTransition>
         </main>
       </div>
 

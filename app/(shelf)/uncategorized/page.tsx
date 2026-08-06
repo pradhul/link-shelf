@@ -24,8 +24,9 @@ export default async function UncategorizedPage({
         topTags={topTags}
         uncategorizedCount={uncategorizedCount}
         title="Uncategorized"
-        subtitle={`${uncategorizedCount} links need a tag — edit in the app`}
+        subtitle={`${uncategorizedCount} links need a tag — edit in the app or AI categorize`}
         showBulkRepair
+        showAiCategorize
       />
     </Suspense>
   );

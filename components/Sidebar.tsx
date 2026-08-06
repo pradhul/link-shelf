@@ -8,12 +8,15 @@ type Props = {
   topTags: Tag[];
   uncategorizedCount?: number;
   onAddLink: () => void;
+  /** Called when a nav link is clicked (e.g. close mobile drawer). */
+  onNavigate?: () => void;
 };
 
 export function Sidebar({
   topTags,
   uncategorizedCount = 0,
   onAddLink,
+  onNavigate,
 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,6 +36,7 @@ export function Sidebar({
   ) => (
     <Link
       href={href}
+      onClick={onNavigate}
       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
         active
           ? "bg-secondary-container text-on-secondary-container"
@@ -99,6 +103,7 @@ export function Sidebar({
           </p>
           <Link
             href="/tags/manage"
+            onClick={onNavigate}
             className="text-[10px] font-semibold uppercase tracking-wide text-primary"
           >
             Manage

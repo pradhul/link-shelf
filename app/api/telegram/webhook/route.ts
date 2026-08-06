@@ -1,32 +1,28 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import {
+  confidentNamePairs,
+  enrichLinkForCategorize,
+  formatConfidentLabel,
+  runCategorizeBatch,
+  saveSourceFromDetect,
+  toLinkForCategorize,
+  type EnrichedLink,
+} from "@/lib/categorize-saves";
 import { getDb } from "@/lib/db";
-import {
-  categorizeLinks,
-  formatGeminiError,
-  getConfidenceThreshold,
-  hasGeminiKey,
-} from "@/lib/gemini";
-import {
-  detectSource,
-  extractUrl,
-  extractUrls,
-  fetchLinkPreview,
-  fetchThumbnailBytes,
-  getBatchMax,
-} from "@/lib/og";
-import { createOrUpdateSave } from "@/lib/saves";
+import { extractUrl, extractUrls, getBatchMax } from "@/lib/og";
+import { createOrUpdateSave, getSaveById } from "@/lib/saves";
 import { pendingSaves, tags } from "@/lib/schema";
 import {
   findOrCreateTag,
   getSubtags,
-  getTagTree,
   getTopLevelTags,
   parseTagPath,
 } from "@/lib/tags";
 import {
   answerCallbackQuery,
   buildTagKeyboard,
+  changeTagKeyboard,
   clearInlineKeyboard,
   displayName,
   editMessageText,
@@ -42,6 +38,27 @@ export const maxDuration = 60;
 async function clearPending(userId: number) {
   const db = getDb();
   await db.delete(pendingSaves).where(eq(pendingSaves.telegramUserId, userId));
+}
+
+async function setPendingTag(userId: number, url: string) {
+  const db = getDb();
+  await db
+    .insert(pendingSaves)
+    .values({
+      telegramUserId: userId,
+      url,
+      step: "awaiting_tag",
+      tagId: null,
+    })
+    .onConflictDoUpdate({
+      target: pendingSaves.telegramUserId,
+      set: {
+        url,
+        step: "awaiting_tag",
+        tagId: null,
+        createdAt: new Date(),
+      },
+    });
 }
 
 async function saveAndConfirm(opts: {
@@ -67,18 +84,19 @@ async function saveAndConfirm(opts: {
   await sendMessage(opts.chatId, label);
 }
 
-async function promptTopTags(chatId: number) {
+async function promptTopTags(chatId: number, intro?: string) {
   const topTags = await getTopLevelTags();
+  const prefix = intro ? `${intro}\n\n` : "";
   if (topTags.length === 0) {
     await sendMessage(
       chatId,
-      "Got it. No tags yet — type a tag (e.g. recipe), recipe/pasta, or skip.",
+      `${prefix}Got it. No tags yet — type a tag (e.g. recipe), recipe/pasta, or skip.`,
     );
     return;
   }
   await sendMessage(
     chatId,
-    "Pick a tag, type a new one, or send recipe/pasta:",
+    `${prefix}Pick a tag, type a new one, or send recipe/pasta:`,
     buildTagKeyboard(topTags, "tag"),
   );
 }
@@ -103,6 +121,64 @@ async function promptSubtags(
   );
 }
 
+async function handleSingleUrl(
+  chatId: number,
+  userId: number,
+  url: string,
+  username: string | undefined,
+) {
+  await clearPending(userId);
+  await sendMessage(chatId, "Saving and auto-tagging…");
+
+  const enriched = await enrichLinkForCategorize(url);
+  const { results, error } = await runCategorizeBatch([
+    toLinkForCategorize(enriched),
+  ]);
+  const cat = results?.[0] ?? null;
+  const pairs = confidentNamePairs(cat);
+
+  if (pairs.length > 0 && cat) {
+    const { save, created } = await createOrUpdateSave({
+      url: enriched.url,
+      classifications: pairs,
+      addedVia: "telegram",
+      telegramUsername: username,
+      title: enriched.title,
+      og: enriched.og,
+      source: saveSourceFromDetect(enriched.source),
+    });
+    const { paths, confPct } = formatConfidentLabel(pairs, cat);
+    const label = save.title || enriched.url;
+    await sendMessage(
+      chatId,
+      `${created ? "Saved" : "Updated"}: ${label}\n→ ${paths} (${confPct}%)`,
+      changeTagKeyboard(save.id),
+    );
+    return;
+  }
+
+  // AI failed / low confidence — persist uncategorized, then manual fallback
+  await createOrUpdateSave({
+    url: enriched.url,
+    classifications: [],
+    topTagName: null,
+    addedVia: "telegram",
+    telegramUsername: username,
+    title: enriched.title,
+    og: enriched.og,
+    source: saveSourceFromDetect(enriched.source),
+  });
+
+  await setPendingTag(userId, url);
+
+  const why = error
+    ? `Auto-tag failed: ${error}`
+    : cat?.reason
+      ? `Couldn't auto-tag confidently — ${cat.reason}`
+      : "Couldn't auto-tag confidently";
+  await promptTopTags(chatId, `${why}\nSaved as uncategorized — pick a tag manually:`);
+}
+
 async function handleBatchUrls(
   chatId: number,
   userId: number,
@@ -111,118 +187,127 @@ async function handleBatchUrls(
 ) {
   const batchMax = getBatchMax();
   const selected = urls.slice(0, batchMax);
-  const skipped = urls.length - selected.length;
+  const skippedOverMax = urls.length - selected.length;
 
   await clearPending(userId);
   await sendMessage(
     chatId,
-    `Found ${urls.length} link${urls.length === 1 ? "" : "s"}. Analyzing ${selected.length}…` +
-      (skipped > 0
-        ? ` (${skipped} left for a second message — free tier works better with ≤${batchMax})`
+    `Found ${urls.length} link${urls.length === 1 ? "" : "s"}. Saving ${selected.length}…` +
+      (skippedOverMax > 0
+        ? ` (${skippedOverMax} left for a second message — free tier works better with ≤${batchMax})`
         : ""),
   );
 
-  const enriched = await Promise.all(
-    selected.map(async (url) => {
-      const og = await fetchLinkPreview(url, { timeoutMs: 3000 });
-      const image = og.thumbnailUrl
-        ? await fetchThumbnailBytes(og.thumbnailUrl, { timeoutMs: 3000 })
-        : null;
-      return {
+  // 1) Enrich + persist as uncategorized first (so timeouts/AI failures don't drop links)
+  type SavedItem = {
+    enriched: EnrichedLink;
+    created: boolean;
+    label: string;
+  };
+  const saved: SavedItem[] = [];
+  const failedToSave: string[] = [];
+
+  for (const url of selected) {
+    let enriched: EnrichedLink;
+    try {
+      enriched = await enrichLinkForCategorize(url);
+    } catch (err) {
+      console.error("enrich failed", url, err);
+      enriched = {
         url,
-        source: detectSource(url),
-        title: og.title,
-        description: og.description,
-        og,
-        image,
+        source: "other",
+        title: null,
+        description: null,
+        og: { title: null, description: null, thumbnailUrl: null },
+        image: null,
       };
-    }),
+    }
+
+    try {
+      const { save, created } = await createOrUpdateSave({
+        url: enriched.url,
+        classifications: [],
+        topTagName: null,
+        addedVia: "telegram",
+        telegramUsername: username,
+        title: enriched.title,
+        og: enriched.og,
+        source: saveSourceFromDetect(enriched.source),
+      });
+      saved.push({
+        enriched,
+        created,
+        label: save.title || enriched.url,
+      });
+    } catch (err) {
+      console.error("save failed", url, err);
+      failedToSave.push(url);
+    }
+  }
+
+  if (saved.length === 0) {
+    await sendMessage(
+      chatId,
+      "Couldn't save any of those links. Try again one at a time.",
+    );
+    return;
+  }
+
+  // 2) AI categorize, then update tags for confident hits
+  await sendMessage(chatId, `Auto-tagging ${saved.length}…`);
+  const { results, error } = await runCategorizeBatch(
+    saved.map((s) => toLinkForCategorize(s.enriched)),
   );
 
-  const threshold = getConfidenceThreshold();
-  let results: Awaited<ReturnType<typeof categorizeLinks>> | null = null;
-  let categorizeError: string | null = null;
-
-  if (!hasGeminiKey()) {
-    categorizeError =
-      "Auto-tag needs GEMINI_API_KEY. Saving all as uncategorized.";
-    await sendMessage(chatId, categorizeError);
-  } else {
-    try {
-      const tagTree = await getTagTree();
-      results = await categorizeLinks(
-        enriched.map(({ url, source, title, description, image }) => ({
-          url,
-          source,
-          title,
-          description,
-          image,
-        })),
-        tagTree,
-      );
-    } catch (err) {
-      console.error("gemini categorize failed", err);
-      categorizeError = formatGeminiError(err);
-      await sendMessage(
-        chatId,
-        `Auto-tag failed: ${categorizeError}\nSaving all as uncategorized — edit tags in the app.`,
-      );
-    }
+  if (error) {
+    await sendMessage(
+      chatId,
+      `Auto-tag failed: ${error}\nLinks are saved as uncategorized — edit tags in the app.`,
+    );
   }
 
   const lines: string[] = [];
   let tagged = 0;
   let uncategorized = 0;
 
-  for (let i = 0; i < enriched.length; i++) {
-    const item = enriched[i];
+  for (let i = 0; i < saved.length; i++) {
+    const item = saved[i];
     const cat = results?.[i] ?? null;
-    const confidentPairs =
-      cat?.classifications.filter(
-        (c) => c.confidence >= threshold && Boolean(c.topTag?.trim()),
-      ) ?? [];
-    const confident = confidentPairs.length > 0;
+    const pairs = confidentNamePairs(cat);
 
-    const { save, created } = await createOrUpdateSave({
-      url: item.url,
-      classifications: confident
-        ? confidentPairs.map((c) => ({
-            topTagName: c.topTag,
-            subTagName: c.subTag,
-          }))
-        : [],
-      topTagName: confident ? undefined : null,
-      addedVia: "telegram",
-      telegramUsername: username,
-      title: item.title,
-      og: item.og,
-      source: item.source === "manual" ? "other" : item.source,
-    });
-
-    const label = save.title || item.url;
-    if (confident) {
-      tagged += 1;
-      const paths = confidentPairs
-        .map((c) => [c.topTag, c.subTag].filter(Boolean).join("/"))
-        .join(", ");
-      const confPct = Math.round(
-        Math.max(...confidentPairs.map((c) => c.confidence)) * 100,
-      );
-      lines.push(
-        `• ${created ? "Saved" : "Updated"}: ${label}\n  → ${paths} (${confPct}%)`,
-      );
-    } else {
-      uncategorized += 1;
-      const why = cat?.reason ? ` — ${cat.reason}` : "";
-      lines.push(
-        `• ${created ? "Saved" : "Updated"}: ${label}\n  → uncategorized (review in app)${why}`,
-      );
+    if (pairs.length > 0 && cat) {
+      try {
+        await createOrUpdateSave({
+          url: item.enriched.url,
+          classifications: pairs,
+          addedVia: "telegram",
+          telegramUsername: username,
+          title: item.enriched.title,
+          og: item.enriched.og,
+          source: saveSourceFromDetect(item.enriched.source),
+        });
+        tagged += 1;
+        const { paths, confPct } = formatConfidentLabel(pairs, cat);
+        lines.push(
+          `• ${item.created ? "Saved" : "Updated"}: ${item.label}\n  → ${paths} (${confPct}%)`,
+        );
+        continue;
+      } catch (err) {
+        console.error("retag failed", item.enriched.url, err);
+      }
     }
+
+    uncategorized += 1;
+    const why = cat?.reason ? ` — ${cat.reason}` : "";
+    lines.push(
+      `• ${item.created ? "Saved" : "Updated"}: ${item.label}\n  → uncategorized (review in app)${why}`,
+    );
   }
 
   const header =
     `Done. Tagged: ${tagged} · Uncategorized: ${uncategorized}` +
-    (skipped > 0 ? ` · Skipped: ${skipped}` : "");
+    (failedToSave.length > 0 ? ` · Failed: ${failedToSave.length}` : "") +
+    (skippedOverMax > 0 ? ` · Skipped: ${skippedOverMax}` : "");
   await sendMessage(chatId, `${header}\n\n${lines.join("\n")}`);
 }
 
@@ -246,20 +331,36 @@ async function handleCallback(update: TelegramUpdate) {
   }
 
   const db = getDb();
-  const pending = await db.query.pendingSaves.findFirst({
-    where: eq(pendingSaves.telegramUserId, userId),
-  });
-
-  if (!pending) {
-    await clearInlineKeyboard(chatId, messageId);
-    await sendMessage(
-      chatId,
-      "Nothing pending to tag. Send a link first.",
-    );
-    return;
-  }
 
   try {
+    // Manual override after AI auto-tag — no pending required yet
+    if (data.startsWith("retag:")) {
+      const saveId = data.slice(6);
+      const save = await getSaveById(saveId);
+      if (!save) {
+        await clearInlineKeyboard(chatId, messageId);
+        await sendMessage(chatId, "That link is gone. Send it again to retag.");
+        return;
+      }
+      await clearInlineKeyboard(chatId, messageId);
+      await setPendingTag(userId, save.url);
+      await promptTopTags(chatId, "Pick a new tag:");
+      return;
+    }
+
+    const pending = await db.query.pendingSaves.findFirst({
+      where: eq(pendingSaves.telegramUserId, userId),
+    });
+
+    if (!pending) {
+      await clearInlineKeyboard(chatId, messageId);
+      await sendMessage(
+        chatId,
+        "Nothing pending to tag. Send a link first.",
+      );
+      return;
+    }
+
     if (data === "type_new") {
       await clearInlineKeyboard(chatId, messageId);
       const hint =
@@ -383,32 +484,14 @@ async function handleMessage(update: TelegramUpdate) {
     const urlInMessage = urls[0] ?? extractUrl(text);
 
     if (urlInMessage) {
-      await db
-        .insert(pendingSaves)
-        .values({
-          telegramUserId: userId,
-          url: urlInMessage,
-          step: "awaiting_tag",
-          tagId: null,
-        })
-        .onConflictDoUpdate({
-          target: pendingSaves.telegramUserId,
-          set: {
-            url: urlInMessage,
-            step: "awaiting_tag",
-            tagId: null,
-            createdAt: new Date(),
-          },
-        });
-
-      await promptTopTags(chatId);
+      await handleSingleUrl(chatId, userId, urlInMessage, username);
       return;
     }
 
     if (!pending) {
       await sendMessage(
         chatId,
-        "Send me an Instagram or YouTube link to save it to The Link Shelf.\nTip: send 2+ links at once for auto-tagging.",
+        "Send me an Instagram or YouTube link to save it to The Link Shelf.\nLinks are auto-tagged; you can change the tag anytime.",
       );
       return;
     }
