@@ -12,6 +12,7 @@ import { MobileNav } from "./MobileNav";
 import { NotesSheet } from "./NotesSheet";
 import { PageTransition } from "./PageTransition";
 import { SearchBar } from "./SearchBar";
+import { Toast } from "./Toast";
 
 type Props = {
   saves: SaveWithTags[];
@@ -45,6 +46,10 @@ export function ShelfShell({
   const [notesSave, setNotesSave] = useState<SaveWithTags | null>(null);
   const [repairing, setRepairing] = useState(false);
   const [categorizing, setCategorizing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
+
+  const visibleSaves = saves.filter((s) => !removedIds.has(s.id));
 
   function refresh() {
     router.refresh();
@@ -69,8 +74,19 @@ export function ShelfShell({
   }
 
   async function remove(save: SaveWithTags) {
-    if (!confirm("Delete this link?")) return;
-    await fetch(`/api/saves/${save.id}`, { method: "DELETE" });
+    setRemovedIds((prev) => new Set(prev).add(save.id));
+    try {
+      const res = await fetch(`/api/saves/${save.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+    } catch {
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(save.id);
+        return next;
+      });
+      setToast("Couldn't delete — try again");
+      return;
+    }
     refresh();
   }
 
@@ -88,8 +104,10 @@ export function ShelfShell({
         body: JSON.stringify({ limit: 25 }),
       });
       const data = await res.json();
-      alert(`Refreshed ${data.refreshed ?? 0} YouTube previews`);
+      setToast(`Refreshed ${data.refreshed ?? 0} YouTube previews`);
       refresh();
+    } catch {
+      setToast("Repair failed — try again");
     } finally {
       setRepairing(false);
     }
@@ -105,13 +123,15 @@ export function ShelfShell({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error ?? "AI categorize failed");
+        setToast(data.error ?? "AI categorize failed");
         return;
       }
-      alert(
+      setToast(
         `Tagged ${data.tagged ?? 0} · Left uncategorized ${data.skipped ?? 0}`,
       );
       refresh();
+    } catch {
+      setToast("AI categorize failed");
     } finally {
       setCategorizing(false);
     }
@@ -150,9 +170,6 @@ export function ShelfShell({
             <span className="material-symbols-outlined text-[18px]">add</span>
             Add Link
           </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container text-on-primary">
-            <span className="material-symbols-outlined text-[20px]">person</span>
-          </div>
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-8">
@@ -170,9 +187,17 @@ export function ShelfShell({
                     type="button"
                     disabled={categorizing}
                     onClick={aiCategorize}
-                    className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-on-primary disabled:opacity-60"
+                    aria-label={categorizing ? "Categorizing" : "AI categorize"}
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-on-primary disabled:opacity-80"
                   >
-                    {categorizing ? "Categorizing…" : "AI categorize"}
+                    {categorizing ? (
+                      <span
+                        className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-on-primary/30 border-t-on-primary"
+                        aria-hidden
+                      />
+                    ) : (
+                      "AI categorize"
+                    )}
                   </button>
                 )}
                 {showBulkRepair && (
@@ -180,9 +205,19 @@ export function ShelfShell({
                     type="button"
                     disabled={repairing}
                     onClick={bulkRepairYoutube}
-                    className="rounded-lg bg-surface-container-high px-3 py-2 text-xs font-semibold text-on-surface disabled:opacity-60"
+                    aria-label={
+                      repairing ? "Repairing titles and notes" : "Repair titles & notes"
+                    }
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center gap-2 rounded-lg bg-surface-container-high px-3 py-2 text-xs font-semibold text-on-surface disabled:opacity-80"
                   >
-                    {repairing ? "Repairing…" : "Repair titles & notes"}
+                    {repairing ? (
+                      <span
+                        className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-on-surface/25 border-t-on-surface"
+                        aria-hidden
+                      />
+                    ) : (
+                      "Repair titles & notes"
+                    )}
                   </button>
                 )}
               </div>
@@ -216,7 +251,7 @@ export function ShelfShell({
               </div>
             )}
 
-            {saves.length === 0 ? (
+            {visibleSaves.length === 0 ? (
               <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-6 py-16 text-center">
                 <span className="material-symbols-outlined mb-3 text-4xl text-outline">
                   shelves
@@ -228,7 +263,7 @@ export function ShelfShell({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {saves.map((save) => (
+                {visibleSaves.map((save) => (
                   <LinkCard
                     key={save.id}
                     save={save}
@@ -269,6 +304,7 @@ export function ShelfShell({
           setEditing(save);
         }}
       />
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

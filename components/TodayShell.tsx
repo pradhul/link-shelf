@@ -35,6 +35,7 @@ export function TodayShell({
   const [notesSave, setNotesSave] = useState<SaveWithTags | null>(null);
   const [generating, setGenerating] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
 
   function refresh() {
     router.refresh();
@@ -68,8 +69,18 @@ export function TodayShell({
   }
 
   async function remove(save: SaveWithTags) {
-    if (!confirm("Delete this link?")) return;
-    await fetch(`/api/saves/${save.id}`, { method: "DELETE" });
+    setRemovedIds((prev) => new Set(prev).add(save.id));
+    try {
+      const res = await fetch(`/api/saves/${save.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+    } catch {
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(save.id);
+        return next;
+      });
+      return;
+    }
     refresh();
   }
 
@@ -142,7 +153,7 @@ export function TodayShell({
               </div>
             )}
 
-            {picks.length === 0 ? (
+            {picks.filter((p) => !removedIds.has(p.saveId)).length === 0 ? (
               <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low px-6 py-16 text-center">
                 <span className="material-symbols-outlined mb-3 text-4xl text-outline">
                   restaurant
@@ -155,7 +166,9 @@ export function TodayShell({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {picks.map((pick) => (
+                {picks
+                  .filter((p) => !removedIds.has(p.saveId))
+                  .map((pick) => (
                   <div key={pick.saveId} className="flex flex-col gap-2">
                     {pick.save ? (
                       <LinkCard

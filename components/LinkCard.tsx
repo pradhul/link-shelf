@@ -8,8 +8,9 @@ type Props = {
   save: SaveWithTags;
   onEdit: (save: SaveWithTags) => void;
   onToggleFavorite: (save: SaveWithTags) => void;
-  onDelete: (save: SaveWithTags) => void;
-  onRefreshPreview?: (save: SaveWithTags) => void;
+  /** Called after the exit animation — no confirm needed here. */
+  onDelete: (save: SaveWithTags) => void | Promise<void>;
+  onRefreshPreview?: (save: SaveWithTags) => void | Promise<void>;
   onViewNotes?: (save: SaveWithTags) => void;
   /** Show watched toggle (movie-tagged cards + Friday picks). */
   showWatchedToggle?: boolean;
@@ -32,6 +33,14 @@ function hostname(url: string) {
   }
 }
 
+function sourceIcon(source: SaveWithTags["source"]) {
+  if (source === "youtube") return "smart_display";
+  if (source === "instagram") return "photo_camera";
+  return null;
+}
+
+const EXIT_MS = 300;
+
 export function LinkCard({
   save,
   onEdit,
@@ -43,8 +52,11 @@ export function LinkCard({
   onToggleWatched,
 }: Props) {
   const [starBump, setStarBump] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [exiting, setExiting] = useState(false);
   const notes = save.notes?.trim() ?? "";
   const showDescription = !notes && Boolean(save.description?.trim());
+  const icon = sourceIcon(save.source);
 
   function handleFavorite(e: React.MouseEvent) {
     e.preventDefault();
@@ -60,8 +72,34 @@ export function LinkCard({
     onToggleWatched?.(save);
   }
 
+  async function handleRefresh(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!onRefreshPreview || refreshing) return;
+    setRefreshing(true);
+    try {
+      await onRefreshPreview(save);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (exiting) return;
+    if (!confirm("Delete this link?")) return;
+    setExiting(true);
+    await new Promise((r) => window.setTimeout(r, EXIT_MS));
+    await onDelete(save);
+  }
+
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/30 transition hover:-translate-y-0.5 hover:shadow-md">
+    <article
+      className={`group flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/30 transition hover:-translate-y-0.5 hover:shadow-md ${
+        exiting ? "card-exiting" : ""
+      }`}
+    >
       <div className="relative aspect-[16/10] overflow-hidden bg-surface-container">
         <a
           href={save.url}
@@ -112,13 +150,6 @@ export function LinkCard({
             </button>
           )}
         </div>
-        {(save.source === "youtube" || save.source === "instagram") && (
-          <span className="pointer-events-none absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-primary/80 text-on-primary">
-            <span className="material-symbols-outlined text-[16px]">
-              {save.source === "youtube" ? "play_arrow" : "photo_camera"}
-            </span>
-          </span>
-        )}
         {save.isWatched && showWatchedToggle && (
           <span className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-on-surface/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-surface">
             Watched
@@ -193,9 +224,17 @@ export function LinkCard({
             href={save.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="truncate hover:underline"
+            className="flex min-w-0 items-center gap-1.5 hover:underline"
           >
-            {hostname(save.url)}
+            {icon && (
+              <span
+                className="material-symbols-outlined shrink-0 text-[15px] text-on-surface-variant"
+                aria-hidden
+              >
+                {icon}
+              </span>
+            )}
+            <span className="truncate">{hostname(save.url)}</span>
           </a>
           <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100 max-md:opacity-100">
             {onRefreshPreview && (
@@ -203,10 +242,15 @@ export function LinkCard({
                 type="button"
                 aria-label="Refresh preview"
                 title="Refresh preview"
-                onClick={() => onRefreshPreview(save)}
-                className="press-scale rounded-full p-1 hover:bg-surface-container-high"
+                disabled={refreshing || exiting}
+                onClick={handleRefresh}
+                className="press-scale rounded-full p-1 hover:bg-surface-container-high disabled:opacity-70"
               >
-                <span className="material-symbols-outlined text-[16px]">
+                <span
+                  className={`material-symbols-outlined text-[16px] ${
+                    refreshing ? "animate-spin" : ""
+                  }`}
+                >
                   refresh
                 </span>
               </button>
@@ -214,6 +258,7 @@ export function LinkCard({
             <button
               type="button"
               aria-label="Edit"
+              disabled={exiting}
               onClick={() => onEdit(save)}
               className="press-scale rounded-full p-1 hover:bg-surface-container-high"
             >
@@ -222,7 +267,8 @@ export function LinkCard({
             <button
               type="button"
               aria-label="Delete"
-              onClick={() => onDelete(save)}
+              disabled={exiting}
+              onClick={handleDelete}
               className="press-scale rounded-full p-1 hover:bg-surface-container-high"
             >
               <span className="material-symbols-outlined text-[16px]">
