@@ -1,0 +1,10 @@
+{
+  "name": "neon-local-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local Neon HTTP /sql proxy backed by node-postgres for offline development of link-shelf.",
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

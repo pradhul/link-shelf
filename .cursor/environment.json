@@ -1,0 +1,16 @@
+{
+  "name": "Link Shelf",
+  "install": "bash .cursor/setup/install.sh",
+  "start": "bash .cursor/setup/start.sh",
+  "terminals": [
+    {
+      "name": "neon-db-proxy",
+      "command": "cd .cursor/neon-proxy && PG_CONNECTION_STRING=\"postgres://shelf:shelf@127.0.0.1:5432/linkshelf\" node proxy.mjs"
+    },
+    {
+      "name": "next-dev",
+      "command": "NODE_EXTRA_CA_CERTS=/etc/neon-local-proxy/cert.pem npm run dev"
+    }
+  ],
+  "ports": [3000]
+}
