@@ -8,6 +8,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DB_NAME="linkshelf"
 DB_USER="shelf"
 DB_PASS="shelf"
+DB_HOST_ALIAS="db.link-shelf.local"
+API_HOST_ALIAS="api.link-shelf.local"
+
+echo "==> Ensure /etc/hosts aliases -> 127.0.0.1 (the container regenerates /etc/hosts each boot)"
+if ! grep -q "${API_HOST_ALIAS}" /etc/hosts; then
+  echo "127.0.0.1 ${DB_HOST_ALIAS} ${API_HOST_ALIAS}" | sudo tee -a /etc/hosts >/dev/null
+fi
 
 echo "==> Ensure Postgres is running"
 if ! pg_lsclusters -h | awk '{print $4}' | grep -q online; then
